@@ -22,6 +22,9 @@
     .field-value { background: #f6f8fa; border-radius: 8px; padding: 10px; font-size: 14px; white-space: pre-wrap; line-height: 1.5; }
     .empty { color: #999; font-size: 14px; padding: 12px 0; }
     .learning-item { border-top: 1px solid #eee; padding-top: 12px; margin-top: 12px; }
+    .blank-qa { background: #f6f8fa; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+    .blank-q { font-size: 13px; color: #555; line-height: 1.5; margin-bottom: 4px; }
+    .blank-a { font-size: 14px; font-weight: bold; color: #1a4fbf; }
   </style>
 </head>
 <body>
@@ -52,6 +55,72 @@
 
 <script>
 var APP_URL = 'https://script.google.com/macros/s/AKfycbwWjFVmcxHzg0GUIbySHl2orXll2siH1I5oAeZNP8VWmYSaVbQ5YOlYEe1o7X7-KcHQ/exec';
+
+var SECTION_TITLES = {
+  '1': '🌍 복사 평형 분과',
+  '2': '🌧️ 수증기·강수 분과',
+  '3': '🌬️ 기압·바람 분과',
+  '4': '☁️ 기단·전선 분과'
+};
+var BLANK_PROMPTS = {
+  '1': [
+    '지구는 태양으로부터 엄청난 양의 ( ① )를 흡수하고, 동시에 우주로 에너지를 방출하여 온도가 일정하게 유지되는 ( ② ) 상태를 이룹니다. ①에 들어갈 말은?',
+    '* 위 문장과 이어집니다. ②에 들어갈 말은? (온도가 일정하게 유지되는 상태의 이름)',
+    '지표에서 우주로 방출되는 에너지 중 일부를 대기가 흡수했다가 다시 지표로 방출하여 지구를 따뜻하게 유지하는 현상을 무엇이라 하나요?',
+    '이러한 효과를 일으키는 주요 기체인 수증기, ( ), 메테인 등이 있습니다. 빈칸에 들어갈 기체는?',
+    '* 위 문장과 이어집니다. 수증기, 이산화탄소, 메테인 등을 묶어서 부르는 이름은?',
+    '그러나 인간의 산업 활동(화석 연료 사용 등)으로 인해 대기 중의 ( ) 농도가 급격히 증가했습니다. 빈칸에 들어갈 말은?',
+    '그 결과 대기의 보온 효과가 비정상적으로 강화되어 지구의 평균 기온이 점점 빠르게 상승하는 현상을 무엇이라 하나요?'
+  ],
+  '2': [
+    '일정한 온도에서 공기가 최대로 포함할 수 있는 수증기의 양을 무엇이라 하나요?',
+    '공기가 위로 상승하면 주변 압력이 낮아져 부피가 커지고 온도는 낮아지는 현상을 무엇이라 하나요?',
+    '온도가 이 지점까지 낮아지면 수증기가 응결되기 시작합니다. 이 온도를 무엇이라 하나요?',
+    '수증기가 응결되어 만들어지는 것은 무엇인가요?',
+    '대기가 머금는 수증기량이 급증하면 한 번에 엄청난 비가 쏟아지는 극단적인 현상이 발생합니다. 이를 무엇이라 하나요?',
+    '반대로 비가 오지 않는 지역이 겪게 되는 극심한 현상은 무엇인가요?'
+  ],
+  '3': [
+    '기체가 충돌하면서 단위 면적에 작용하는 힘을 무엇이라 하나요?',
+    '지표면이 가열되어 공기가 팽창, 상승하면 무엇이 형성되나요?',
+    '지표면이 냉각되어 공기가 수축, 하강하면 무엇이 형성되나요?',
+    '기압이 높은 곳에서 낮은 곳으로 이동하는 공기의 수평 이동을 무엇이라 하나요?',
+    '온난화로 북극 기온이 크게 상승하면 중위도 지방과의 무엇의 차이가 줄어드나요?',
+    '대기 순환의 균형이 깨지면서 한겨울에 발생하는 이상 현상은 무엇인가요?'
+  ],
+  '4': [
+    '공기 덩어리가 한 장소에 오래 머물러 지표면의 기온/습도 속성을 띠게 된 것을 무엇이라 하나요?',
+    '성질이 다른 두 기단이 만나는 경계면을 무엇이라 하나요?',
+    '세력이 비슷한 두 기단이 오랫동안 머물 때 형성되는 전선은 무엇인가요? (장마전선이 대표적)',
+    '우리나라 한여름에 영향을 주는 고온다습한 기단의 이름은?',
+    '온난화로 기단의 경계가 무너지면서 무엇의 경계가 모호해지나요? (봄,여름,가을,겨울)',
+    '전선이 이동하지 못하고 한곳에 머무는 현상을 무엇이라 하나요?'
+  ]
+};
+
+function getSectionIdByTitle(title) {
+  for (var id in SECTION_TITLES) {
+    if (SECTION_TITLES[id] === title) return id;
+  }
+  return null;
+}
+
+function renderBlanksWithPrompts(sectionTitle, blanksStr) {
+  var sectionId = getSectionIdByTitle(sectionTitle);
+  var answers = (blanksStr || '').split(' / ');
+  var prompts = sectionId ? BLANK_PROMPTS[sectionId] : null;
+
+  if (!prompts) {
+    return '<div class="field-value">' + escapeHtml_(blanksStr) + '</div>';
+  }
+
+  return prompts.map(function (q, i) {
+    return '<div class="blank-qa">' +
+      '<div class="blank-q">' + (i + 1) + '. ' + escapeHtml_(q) + '</div>' +
+      '<div class="blank-a">✏️ ' + escapeHtml_(answers[i] || '') + '</div>' +
+      '</div>';
+  }).join('');
+}
 
 function apiGet(params) {
   var qs = Object.keys(params).map(function (k) {
@@ -102,7 +171,7 @@ function renderOwn(own) {
 
   content.innerHTML =
     '<div class="meta">제출 시각: ' + own.timestamp + ' / 분과: ' + own.section + '</div>' +
-    '<div class="field"><div class="field-label">빈칸 답안</div><div class="field-value">' + escapeHtml_(own.blanks) + '</div></div>' +
+    '<div class="field"><div class="field-label">빈칸 채우기</div>' + renderBlanksWithPrompts(own.section, own.blanks) + '</div>' +
     '<div class="field"><div class="field-label">💡 AI 교차 검증 기록</div><div class="field-value">' + escapeHtml_(own.aiCheck) + '</div></div>' +
     '<div class="field"><div class="field-label">➡️ 인과 단계 서술</div><div class="field-value">' + escapeHtml_(own.lifeAnswer) + '</div></div>';
 }
@@ -120,7 +189,7 @@ function renderLearning(learning) {
   content.innerHTML = learning.map(function (item, idx) {
     return '<div class="learning-item' + (idx === 0 ? ' first' : '') + '">' +
       '<div class="meta">제출 시각: ' + item.timestamp + ' / 분과: ' + item.section + '</div>' +
-      '<div class="field-value">' + escapeHtml_(item.blanks) + '</div>' +
+      renderBlanksWithPrompts(item.section, item.blanks) +
       '</div>';
   }).join('');
 }
