@@ -149,14 +149,16 @@ function goToSectionSelect() {
   }
   msg.innerHTML = '<div class="msg success">확인 중...</div>';
   google.script.run.withSuccessHandler(function (res) {
-    if (res.submitted) {
+    if (!res.valid) {
+      msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
+    } else if (res.submitted) {
       msg.innerHTML = '<div class="msg error">이미 [' + res.section + ']로 제출한 기록이 있습니다. 한 명당 한 분과만 제출 가능합니다.</div>';
     } else {
       msg.innerHTML = '';
       document.getElementById('step0').classList.add('hidden');
       document.getElementById('step1').classList.remove('hidden');
     }
-  }).checkAlreadySubmitted(id);
+  }).checkAlreadySubmitted(id, name);
 }
 
 function selectSection(sectionId) {
