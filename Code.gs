@@ -97,6 +97,8 @@ function doGet(e) {
     result = { ok: checkBlank(e.parameter.sectionId, Number(e.parameter.blankIndex), e.parameter.answer) };
   } else if (action === 'checkLearningStatus') {
     result = checkLearningStatus(e.parameter.studentId, e.parameter.studentName);
+  } else if (action === 'getMySubmissions') {
+    result = getMySubmissions(e.parameter.studentId, e.parameter.studentName);
   } else {
     result = { error: 'unknown action' };
   }
@@ -309,4 +311,42 @@ function submitLearningWorksheet(payload) {
   ]);
 
   return { success: true, doneSectionIds: doneIds.concat([String(payload.sectionId)]) };
+}
+
+// 클라이언트(student.html)에서 호출: 본인이 제출한 1차/2차 답안을 모두 조회 (읽기 전용)
+function getMySubmissions(studentId, studentName) {
+  if (!verifyStudent_(studentId, studentName)) {
+    return { valid: false, message: '학번 또는 이름이 명단과 일치하지 않습니다. 다시 확인해주세요.' };
+  }
+
+  var own = null;
+  var sheet = getSheet_();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) === String(studentId)) {
+      own = {
+        timestamp: Utilities.formatDate(new Date(data[i][0]), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
+        section: data[i][3],
+        blanks: data[i][4],
+        aiCheck: data[i][5],
+        lifeAnswer: data[i][6]
+      };
+      break;
+    }
+  }
+
+  var learning = [];
+  var learningSheet = getLearningSheet_();
+  var learningData = learningSheet.getDataRange().getValues();
+  for (var j = 1; j < learningData.length; j++) {
+    if (String(learningData[j][1]) === String(studentId)) {
+      learning.push({
+        timestamp: Utilities.formatDate(new Date(learningData[j][0]), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
+        section: learningData[j][3],
+        blanks: learningData[j][4]
+      });
+    }
+  }
+
+  return { valid: true, own: own, learning: learning };
 }

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; background: #f6f8fa; color: #222; }
+    h1 { font-size: 20px; text-align: center; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    label { display: block; font-weight: bold; margin: 12px 0 6px; }
+    input[type=text] { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; }
+    button { background: #2d6cdf; color: #fff; border: none; padding: 12px 18px; border-radius: 8px; font-size: 15px; cursor: pointer; margin-top: 14px; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    .hidden { display: none; }
+    .msg { padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 14px; }
+    .msg.error { background: #ffe5e5; color: #b00000; }
+    .msg.success { background: #e3f7e8; color: #1a7a36; }
+    .step-label { font-size: 13px; color: #777; margin-bottom: 6px; }
+    .result-title { font-size: 16px; font-weight: bold; margin-bottom: 8px; }
+    .meta { font-size: 12px; color: #888; margin-bottom: 10px; }
+    .field { margin-bottom: 12px; }
+    .field-label { font-size: 13px; font-weight: bold; color: #555; margin-bottom: 4px; }
+    .field-value { background: #f6f8fa; border-radius: 8px; padding: 10px; font-size: 14px; white-space: pre-wrap; line-height: 1.5; }
+    .empty { color: #999; font-size: 14px; padding: 12px 0; }
+    .learning-item { border-top: 1px solid #eee; padding-top: 12px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>📋 내 제출 내용 확인</h1>
+
+  <!-- STEP 0: 학번/이름 입력 -->
+  <div id="step0" class="card">
+    <div class="step-label">학번과 이름을 입력하면 내가 제출한 답안을 볼 수 있습니다.</div>
+    <label>학번</label>
+    <input type="text" id="studentId" placeholder="예: 3101 (3학년 1반 1번)">
+    <label>이름</label>
+    <input type="text" id="studentName" placeholder="이름 입력">
+    <div id="step0-msg"></div>
+    <button onclick="loadMySubmissions()" id="loadBtn">확인하기</button>
+  </div>
+
+  <!-- STEP 1: 본인 핵심 개념일지 제출 결과 -->
+  <div id="ownCard" class="card hidden">
+    <div class="result-title">📝 1차 핵심 개념일지 (본인 발표 분과)</div>
+    <div id="ownContent"></div>
+  </div>
+
+  <!-- STEP 2: 친구 발표 청취 제출 결과 -->
+  <div id="learningCard" class="card hidden">
+    <div class="result-title">👂 친구 발표 청취 핵심 개념일지</div>
+    <div id="learningContent"></div>
+  </div>
+
+<script>
+var APP_URL = 'https://script.google.com/macros/s/AKfycbwWjFVmcxHzg0GUIbySHl2orXll2siH1I5oAeZNP8VWmYSaVbQ5YOlYEe1o7X7-KcHQ/exec';
+
+function apiGet(params) {
+  var qs = Object.keys(params).map(function (k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+  return fetch(APP_URL + '?' + qs).then(function (r) { return r.json(); });
+}
+
+function loadMySubmissions() {
+  var id = document.getElementById('studentId').value.trim();
+  var name = document.getElementById('studentName').value.trim();
+  var msg = document.getElementById('step0-msg');
+  var btn = document.getElementById('loadBtn');
+  msg.innerHTML = '';
+
+  if (!id || !name) {
+    msg.innerHTML = '<div class="msg error">학번과 이름을 모두 입력해주세요.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  msg.innerHTML = '<div class="msg success">조회 중...</div>';
+
+  apiGet({ action: 'getMySubmissions', studentId: id, studentName: name }).then(function (res) {
+    btn.disabled = false;
+    if (!res.valid) {
+      msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
+      return;
+    }
+    msg.innerHTML = '';
+    renderOwn(res.own);
+    renderLearning(res.learning);
+  }).catch(function (err) {
+    btn.disabled = false;
+    msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+  });
+}
+
+function renderOwn(own) {
+  var card = document.getElementById('ownCard');
+  var content = document.getElementById('ownContent');
+  card.classList.remove('hidden');
+
+  if (!own) {
+    content.innerHTML = '<div class="empty">아직 제출한 기록이 없습니다.</div>';
+    return;
+  }
+
+  content.innerHTML =
+    '<div class="meta">제출 시각: ' + own.timestamp + ' / 분과: ' + own.section + '</div>' +
+    '<div class="field"><div class="field-label">빈칸 답안</div><div class="field-value">' + escapeHtml_(own.blanks) + '</div></div>' +
+    '<div class="field"><div class="field-label">💡 AI 교차 검증 기록</div><div class="field-value">' + escapeHtml_(own.aiCheck) + '</div></div>' +
+    '<div class="field"><div class="field-label">➡️ 인과 단계 서술</div><div class="field-value">' + escapeHtml_(own.lifeAnswer) + '</div></div>';
+}
+
+function renderLearning(learning) {
+  var card = document.getElementById('learningCard');
+  var content = document.getElementById('learningContent');
+  card.classList.remove('hidden');
+
+  if (!learning || learning.length === 0) {
+    content.innerHTML = '<div class="empty">아직 제출한 기록이 없습니다.</div>';
+    return;
+  }
+
+  content.innerHTML = learning.map(function (item, idx) {
+    return '<div class="learning-item' + (idx === 0 ? ' first' : '') + '">' +
+      '<div class="meta">제출 시각: ' + item.timestamp + ' / 분과: ' + item.section + '</div>' +
+      '<div class="field-value">' + escapeHtml_(item.blanks) + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function escapeHtml_(s) {
+  var div = document.createElement('div');
+  div.innerText = s || '';
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
