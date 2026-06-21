@@ -76,11 +76,44 @@ var SECTION_META = {
   '4': { title: '☁️ 기단·전선 분과' }
 };
 
-function doGet() {
-  return HtmlService.createTemplateFromFile('index')
-    .evaluate()
-    .setTitle('1차시 기후위기 긴급회의 핵심 개념일지')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+// GitHub Pages(외부 도메인)에서 fetch로 호출하는 JSON API
+// 예: GET ?action=checkStudent&studentId=3101&studentName=강승재
+//     GET ?action=checkBlank&sectionId=1&blankIndex=0&answer=복사에너지
+function doGet(e) {
+  var action = e && e.parameter && e.parameter.action;
+  if (!action) {
+    // 액션 파라미터가 없으면 (Apps Script에서 직접 미리보기할 때 등) 기존 HTML도 서빙
+    return HtmlService.createTemplateFromFile('index')
+      .evaluate()
+      .setTitle('1차시 기후위기 긴급회의 핵심 개념일지')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  var result;
+  if (action === 'checkStudent') {
+    result = checkAlreadySubmitted(e.parameter.studentId, e.parameter.studentName);
+  } else if (action === 'checkBlank') {
+    result = { ok: checkBlank(e.parameter.sectionId, Number(e.parameter.blankIndex), e.parameter.answer) };
+  } else {
+    result = { error: 'unknown action' };
+  }
+  return jsonOutput_(result);
+}
+
+// GitHub Pages에서 제출은 POST로 (CORS 프리플라이트를 피하려 text/plain 본문에 JSON 문자열을 담아 보냄)
+function doPost(e) {
+  var body = JSON.parse(e.postData.contents);
+  var result;
+  if (body.action === 'submit') {
+    result = submitWorksheet(body.payload);
+  } else {
+    result = { error: 'unknown action' };
+  }
+  return jsonOutput_(result);
+}
+
+function jsonOutput_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
 function include(filename) {

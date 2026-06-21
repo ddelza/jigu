@@ -35,7 +35,7 @@
   <div id="step0" class="card">
     <div class="step-label">STEP 1. 본인 확인</div>
     <label>학번</label>
-    <input type="text" id="studentId" placeholder="예: 30115">
+    <input type="text" id="studentId" placeholder="예: 3101 (3학년 1반 1번)">
     <label>이름</label>
     <input type="text" id="studentName" placeholder="이름 입력">
     <div id="step0-msg"></div>
@@ -73,6 +73,25 @@
   </div>
 
 <script>
+// Apps Script 웹앱 배포 후 발급되는 /exec URL을 여기에 넣어야 합니다.
+var APP_URL = 'PUT_YOUR_DEPLOYED_WEBAPP_URL_HERE';
+
+function apiGet(params) {
+  var qs = Object.keys(params).map(function (k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+  return fetch(APP_URL + '?' + qs).then(function (r) { return r.json(); });
+}
+
+function apiPost(body) {
+  // text/plain으로 보내야 CORS 프리플라이트가 발생하지 않음 (Apps Script가 OPTIONS를 처리하지 않기 때문)
+  return fetch(APP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  }).then(function (r) { return r.json(); });
+}
+
 var BLANK_COUNTS = { '1':7, '2':6, '3':6, '4':6 };
 var VIDEO_IDS = {
   '1': 'APQesZ7nhvQ',
@@ -148,7 +167,7 @@ function goToSectionSelect() {
     return;
   }
   msg.innerHTML = '<div class="msg success">확인 중...</div>';
-  google.script.run.withSuccessHandler(function (res) {
+  apiGet({ action: 'checkStudent', studentId: id, studentName: name }).then(function (res) {
     if (!res.valid) {
       msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
     } else if (res.submitted) {
@@ -158,7 +177,9 @@ function goToSectionSelect() {
       document.getElementById('step0').classList.add('hidden');
       document.getElementById('step1').classList.remove('hidden');
     }
-  }).checkAlreadySubmitted(id, name);
+  }).catch(function (err) {
+    msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+  });
 }
 
 function selectSection(sectionId) {
@@ -200,8 +221,8 @@ function checkBlankAnswer(i) {
     fb.innerHTML = '<span class="bad">답을 입력해주세요.</span>';
     return;
   }
-  google.script.run.withSuccessHandler(function (ok) {
-    if (ok) {
+  apiGet({ action: 'checkBlank', sectionId: currentSection, blankIndex: i, answer: val }).then(function (res) {
+    if (res.ok) {
       fb.innerHTML = '<span class="ok">✅ 정답입니다!</span>';
       document.getElementById('blankinput-' + i).disabled = true;
       document.getElementById('blankbtn-' + i).disabled = true;
@@ -216,7 +237,9 @@ function checkBlankAnswer(i) {
     } else {
       fb.innerHTML = '<span class="bad">❌ 정답이 아닙니다. 영상을 다시 확인하고 재입력해주세요.</span>';
     }
-  }).checkBlank(currentSection, i, val);
+  }).catch(function (err) {
+    fb.innerHTML = '<span class="bad">오류: ' + err.message + '</span>';
+  });
 }
 
 function submitAll() {
@@ -236,17 +259,17 @@ function submitAll() {
     lifeAnswer: lifeAnswer
   };
 
-  google.script.run.withSuccessHandler(function (res) {
+  apiPost({ action: 'submit', payload: payload }).then(function (res) {
     if (res.success) {
       document.body.innerHTML = '<div class="card" style="margin-top:60px;text-align:center;"><h2>✅ 제출 완료!</h2><p>소중한 답변이 기록되었습니다. 감사합니다.</p></div>';
     } else {
       msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
       btn.disabled = false;
     }
-  }).withFailureHandler(function (err) {
+  }).catch(function (err) {
     msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
     btn.disabled = false;
-  }).submitWorksheet(payload);
+  });
 }
 </script>
 </body>
