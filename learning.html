@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; background: #f6f8fa; color: #222; }
+    h1 { font-size: 20px; text-align: center; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    label { display: block; font-weight: bold; margin: 12px 0 6px; }
+    input[type=text], textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; }
+    button { background: #2d6cdf; color: #fff; border: none; padding: 12px 18px; border-radius: 8px; font-size: 15px; cursor: pointer; margin-top: 14px; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    .section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .section-btn { padding: 16px; border: 2px solid #ddd; border-radius: 10px; text-align: center; cursor: pointer; background: #fafafa; font-weight: bold; }
+    .section-btn:hover { border-color: #2d6cdf; }
+    .section-btn.done { border-color: #1a8a3a; background: #e3f7e8; color: #1a7a36; cursor: default; }
+    .section-btn.disabled { opacity: .4; cursor: not-allowed; }
+    .blank-row { margin-bottom: 14px; }
+    .blank-row p { margin: 0 0 6px; line-height: 1.5; }
+    .feedback { font-size: 13px; margin-top: 4px; }
+    .ok { color: #1a8a3a; }
+    .bad { color: #cc2222; }
+    .hidden { display: none; }
+    .video-wrap { position: relative; width: 100%; padding-top: 56.25%; margin-bottom: 14px; }
+    .video-wrap iframe { position: absolute; top:0; left:0; width:100%; height:100%; border-radius: 8px; border:0; }
+    .msg { padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 14px; }
+    .msg.error { background: #ffe5e5; color: #b00000; }
+    .msg.success { background: #e3f7e8; color: #1a7a36; }
+    .step-label { font-size: 13px; color: #777; }
+    .progress { font-size: 13px; color: #555; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <h1>👂 친구 발표 듣고 핵심 개념일지 작성하기</h1>
+
+  <!-- STEP 0: 학번/이름 입력 -->
+  <div id="step0" class="card">
+    <div class="step-label">STEP 1. 본인 확인 (먼저 본인 분과 제출을 완료한 학생만 가능)</div>
+    <label>학번</label>
+    <input type="text" id="studentId" placeholder="예: 3101 (3학년 1반 1번)">
+    <label>이름</label>
+    <input type="text" id="studentName" placeholder="이름 입력">
+    <div id="step0-msg"></div>
+    <button onclick="goToSectionSelect()">다음</button>
+  </div>
+
+  <!-- STEP 1: 분과 선택 -->
+  <div id="step1" class="card hidden">
+    <div class="step-label">STEP 2. 들은 발표 분과 선택 (본인 분과 제외, 나머지 3개 분과 모두 제출 가능)</div>
+    <div class="progress" id="progressLabel"></div>
+    <div class="section-grid" id="sectionGrid"></div>
+    <div id="step1-msg"></div>
+  </div>
+
+  <!-- STEP 2: 영상 + 빈칸 -->
+  <div id="step2" class="card hidden">
+    <div class="step-label">STEP 3. 발표(영상) 내용 빈칸 완성 (정답이어야 다음 칸으로 진행)</div>
+    <h3 id="sectionTitle"></h3>
+    <div class="video-wrap"><iframe id="videoFrame" allowfullscreen></iframe></div>
+    <div id="blanksArea"></div>
+    <div id="step2-msg"></div>
+  </div>
+
+<script>
+var APP_URL = 'https://script.google.com/macros/s/AKfycbwWjFVmcxHzg0GUIbySHl2orXll2siH1I5oAeZNP8VWmYSaVbQ5YOlYEe1o7X7-KcHQ/exec';
+
+function apiGet(params) {
+  var qs = Object.keys(params).map(function (k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+  return fetch(APP_URL + '?' + qs).then(function (r) { return r.json(); });
+}
+
+function apiPost(body) {
+  return fetch(APP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  }).then(function (r) { return r.json(); });
+}
+
+var BLANK_COUNTS = { '1':7, '2':6, '3':6, '4':6 };
+var VIDEO_IDS = {
+  '1': 'APQesZ7nhvQ',
+  '2': 'OCLlbJBLjxs',
+  '3': 'UGMPHsd1fOM',
+  '4': 'SQsWv3dWN3M'
+};
+var SECTION_TITLES = {
+  '1': '🌍 복사 평형 분과',
+  '2': '🌧️ 수증기·강수 분과',
+  '3': '🌬️ 기압·바람 분과',
+  '4': '☁️ 기단·전선 분과'
+};
+var BLANK_PROMPTS = {
+  '1': [
+    '지구는 태양으로부터 엄청난 양의 ( ① )를 흡수하고, 동시에 우주로 에너지를 방출하여 온도가 일정하게 유지되는 ( ② ) 상태를 이룹니다. ①에 들어갈 말은?',
+    '* 위 문장과 이어집니다. ②에 들어갈 말은? (온도가 일정하게 유지되는 상태의 이름)',
+    '지표에서 우주로 방출되는 에너지 중 일부를 대기가 흡수했다가 다시 지표로 방출하여 지구를 따뜻하게 유지하는 현상을 무엇이라 하나요?',
+    '이러한 효과를 일으키는 주요 기체인 수증기, ( ), 메테인 등이 있습니다. 빈칸에 들어갈 기체는?',
+    '* 위 문장과 이어집니다. 수증기, 이산화탄소, 메테인 등을 묶어서 부르는 이름은?',
+    '그러나 인간의 산업 활동(화석 연료 사용 등)으로 인해 대기 중의 ( ) 농도가 급격히 증가했습니다. 빈칸에 들어갈 말은?',
+    '그 결과 대기의 보온 효과가 비정상적으로 강화되어 지구의 평균 기온이 점점 빠르게 상승하는 현상을 무엇이라 하나요?'
+  ],
+  '2': [
+    '일정한 온도에서 공기가 최대로 포함할 수 있는 수증기의 양을 무엇이라 하나요?',
+    '공기가 위로 상승하면 주변 압력이 낮아져 부피가 커지고 온도는 낮아지는 현상을 무엇이라 하나요?',
+    '온도가 이 지점까지 낮아지면 수증기가 응결되기 시작합니다. 이 온도를 무엇이라 하나요?',
+    '수증기가 응결되어 만들어지는 것은 무엇인가요?',
+    '대기가 머금는 수증기량이 급증하면 한 번에 엄청난 비가 쏟아지는 극단적인 현상이 발생합니다. 이를 무엇이라 하나요?',
+    '반대로 비가 오지 않는 지역이 겪게 되는 극심한 현상은 무엇인가요?'
+  ],
+  '3': [
+    '기체가 충돌하면서 단위 면적에 작용하는 힘을 무엇이라 하나요?',
+    '지표면이 가열되어 공기가 팽창, 상승하면 무엇이 형성되나요?',
+    '지표면이 냉각되어 공기가 수축, 하강하면 무엇이 형성되나요?',
+    '기압이 높은 곳에서 낮은 곳으로 이동하는 공기의 수평 이동을 무엇이라 하나요?',
+    '온난화로 북극 기온이 크게 상승하면 중위도 지방과의 무엇의 차이가 줄어드나요?',
+    '대기 순환의 균형이 깨지면서 한겨울에 발생하는 이상 현상은 무엇인가요?'
+  ],
+  '4': [
+    '공기 덩어리가 한 장소에 오래 머물러 지표면의 기온/습도 속성을 띠게 된 것을 무엇이라 하나요?',
+    '성질이 다른 두 기단이 만나는 경계면을 무엇이라 하나요?',
+    '세력이 비슷한 두 기단이 오랫동안 머물 때 형성되는 전선은 무엇인가요? (장마전선이 대표적)',
+    '우리나라 한여름에 영향을 주는 고온다습한 기단의 이름은?',
+    '온난화로 기단의 경계가 무너지면서 무엇의 경계가 모호해지나요? (봄,여름,가을,겨울)',
+    '전선이 이동하지 못하고 한곳에 머무는 현상을 무엇이라 하나요?'
+  ]
+};
+
+var currentSection = null;
+var blankAnswers = [];
+var ownSectionId = null;
+var doneSectionIds = [];
+
+function goToSectionSelect() {
+  var id = document.getElementById('studentId').value.trim();
+  var name = document.getElementById('studentName').value.trim();
+  var msg = document.getElementById('step0-msg');
+  msg.innerHTML = '';
+  if (!id || !name) {
+    msg.innerHTML = '<div class="msg error">학번과 이름을 모두 입력해주세요.</div>';
+    return;
+  }
+  msg.innerHTML = '<div class="msg success">확인 중...</div>';
+  apiGet({ action: 'checkLearningStatus', studentId: id, studentName: name }).then(function (res) {
+    if (!res.valid) {
+      msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
+      return;
+    }
+    msg.innerHTML = '';
+    ownSectionId = res.ownSectionId;
+    doneSectionIds = res.doneSectionIds;
+    document.getElementById('step0').classList.add('hidden');
+    document.getElementById('step1').classList.remove('hidden');
+    renderSectionGrid();
+  }).catch(function (err) {
+    msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+  });
+}
+
+function renderSectionGrid() {
+  var grid = document.getElementById('sectionGrid');
+  grid.innerHTML = '';
+  var remaining = ['1', '2', '3', '4'].filter(function (id) { return id !== String(ownSectionId); });
+
+  document.getElementById('progressLabel').innerText =
+    '완료: ' + doneSectionIds.length + ' / ' + remaining.length + '개 분과';
+
+  if (doneSectionIds.length >= remaining.length) {
+    document.getElementById('step1-msg').innerHTML = '<div class="msg success">🎉 나머지 3개 분과를 모두 제출했습니다. 수고하셨습니다!</div>';
+  }
+
+  remaining.forEach(function (id) {
+    var done = doneSectionIds.indexOf(id) !== -1;
+    var div = document.createElement('div');
+    div.className = 'section-btn' + (done ? ' done' : '');
+    div.innerText = SECTION_TITLES[id] + (done ? ' ✅' : '');
+    if (!done) {
+      div.onclick = function () { selectSection(id); };
+    }
+    grid.appendChild(div);
+  });
+}
+
+function selectSection(sectionId) {
+  currentSection = sectionId;
+  blankAnswers = new Array(BLANK_COUNTS[sectionId]).fill('');
+
+  document.getElementById('step1').classList.add('hidden');
+  document.getElementById('step2').classList.remove('hidden');
+  document.getElementById('step2-msg').innerHTML = '';
+  document.getElementById('sectionTitle').innerText = SECTION_TITLES[sectionId];
+  document.getElementById('videoFrame').src = 'https://www.youtube.com/embed/' + VIDEO_IDS[sectionId];
+
+  renderBlanks();
+}
+
+function renderBlanks() {
+  var area = document.getElementById('blanksArea');
+  area.innerHTML = '';
+  for (var i = 0; i < BLANK_COUNTS[currentSection]; i++) {
+    var row = document.createElement('div');
+    row.className = 'blank-row';
+    row.id = 'blankrow-' + i;
+    row.innerHTML =
+      '<p><b>' + (i + 1) + '.</b> ' + BLANK_PROMPTS[currentSection][i] + '</p>' +
+      '<input type="text" id="blankinput-' + i + '" ' + (i === 0 ? '' : 'disabled') + ' placeholder="정답 입력">' +
+      '<button onclick="checkBlankAnswer(' + i + ')" id="blankbtn-' + i + '" ' + (i === 0 ? '' : 'disabled') + '>확인</button>' +
+      '<div class="feedback" id="blankfeedback-' + i + '"></div>';
+    area.appendChild(row);
+  }
+}
+
+function checkBlankAnswer(i) {
+  var val = document.getElementById('blankinput-' + i).value.trim();
+  var fb = document.getElementById('blankfeedback-' + i);
+  if (!val) {
+    fb.innerHTML = '<span class="bad">답을 입력해주세요.</span>';
+    return;
+  }
+  apiGet({ action: 'checkBlank', sectionId: currentSection, blankIndex: i, answer: val }).then(function (res) {
+    if (res.ok) {
+      fb.innerHTML = '<span class="ok">✅ 정답입니다!</span>';
+      document.getElementById('blankinput-' + i).disabled = true;
+      document.getElementById('blankbtn-' + i).disabled = true;
+      blankAnswers[i] = val;
+
+      if (i + 1 < BLANK_COUNTS[currentSection]) {
+        document.getElementById('blankinput-' + (i + 1)).disabled = false;
+        document.getElementById('blankbtn-' + (i + 1)).disabled = false;
+      } else {
+        submitCurrentSection();
+      }
+    } else {
+      fb.innerHTML = '<span class="bad">❌ 정답이 아닙니다. 영상을 다시 확인하고 재입력해주세요.</span>';
+    }
+  }).catch(function (err) {
+    fb.innerHTML = '<span class="bad">오류: ' + err.message + '</span>';
+  });
+}
+
+function submitCurrentSection() {
+  var msg = document.getElementById('step2-msg');
+  msg.innerHTML = '<div class="msg success">제출 중...</div>';
+
+  var payload = {
+    studentId: document.getElementById('studentId').value.trim(),
+    studentName: document.getElementById('studentName').value.trim(),
+    sectionId: currentSection,
+    blanks: blankAnswers
+  };
+
+  apiPost({ action: 'submitLearning', payload: payload }).then(function (res) {
+    if (res.success) {
+      doneSectionIds = res.doneSectionIds;
+      msg.innerHTML = '<div class="msg success">✅ [' + SECTION_TITLES[currentSection] + '] 제출 완료!</div>';
+      setTimeout(function () {
+        document.getElementById('step2').classList.add('hidden');
+        document.getElementById('step1').classList.remove('hidden');
+        document.getElementById('step1-msg').innerHTML = '';
+        renderSectionGrid();
+      }, 1200);
+    } else {
+      msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
+    }
+  }).catch(function (err) {
+    msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+  });
+}
+</script>
+</body>
+</html>

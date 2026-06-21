@@ -1,6 +1,7 @@
 // ===== 설정 =====
 var SHEET_ID = '1xoVrbYWU1BwfoJwN2e0CBXlDKE4zt_upD4OtqasnV3I'; // 제출 데이터를 쌓을 스프레드시트 ID
 var SHEET_NAME = '제출현황';
+var LEARNING_SHEET_NAME = '제출현황2'; // learning.html(친구 발표 듣기) 제출 기록
 
 // 분과별 정답 (여러 정답 허용: 배열로 등록, 공백/대소문자 무시 비교)
 // 빈칸 개수: ①7개, ②6개, ③6개, ④6개 (최종 확정본 기준)
@@ -94,6 +95,8 @@ function doGet(e) {
     result = checkAlreadySubmitted(e.parameter.studentId, e.parameter.studentName);
   } else if (action === 'checkBlank') {
     result = { ok: checkBlank(e.parameter.sectionId, Number(e.parameter.blankIndex), e.parameter.answer) };
+  } else if (action === 'checkLearningStatus') {
+    result = checkLearningStatus(e.parameter.studentId, e.parameter.studentName);
   } else {
     result = { error: 'unknown action' };
   }
@@ -106,6 +109,8 @@ function doPost(e) {
   var result;
   if (body.action === 'submit') {
     result = submitWorksheet(body.payload);
+  } else if (body.action === 'submitLearning') {
+    result = submitLearningWorksheet(body.payload);
   } else {
     result = { error: 'unknown action' };
   }
@@ -203,4 +208,105 @@ function getSheet_() {
     sheet.appendRow(['제출시각', '학번', '이름', '선택분과', '빈칸답안', 'AI교차검증기록', '인과단계서술']);
   }
   return sheet;
+}
+
+function getLearningSheet_() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(LEARNING_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(LEARNING_SHEET_NAME);
+    sheet.appendRow(['제출시각', '학번', '이름', '청취분과', '빈칸답안']);
+  }
+  return sheet;
+}
+
+function getSectionIdByTitle_(title) {
+  for (var id in SECTION_META) {
+    if (SECTION_META[id].title === title) return id;
+  }
+  return null;
+}
+
+// 학생이 1차(index.html)에서 제출한 본인 분과 ID를 찾음
+function getOwnSectionId_(studentId) {
+  var sheet = getSheet_();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) === String(studentId)) {
+      return getSectionIdByTitle_(data[i][3]);
+    }
+  }
+  return null;
+}
+
+// learning.html에서 이 학생이 이미 청취 제출을 완료한 분과 ID 목록
+function getLearningDoneSectionIds_(studentId) {
+  var sheet = getLearningSheet_();
+  var data = sheet.getDataRange().getValues();
+  var done = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) === String(studentId)) {
+      var id = getSectionIdByTitle_(data[i][3]);
+      if (id && done.indexOf(id) === -1) done.push(id);
+    }
+  }
+  return done;
+}
+
+// 클라이언트(learning.html)에서 호출: 본인 확인 + 본인 분과 + 이미 청취 완료한 분과 목록 반환
+function checkLearningStatus(studentId, studentName) {
+  if (!verifyStudent_(studentId, studentName)) {
+    return { valid: false, message: '학번 또는 이름이 명단과 일치하지 않습니다. 다시 확인해주세요.' };
+  }
+
+  var ownSectionId = getOwnSectionId_(studentId);
+  if (!ownSectionId) {
+    return { valid: false, message: '먼저 본인의 핵심 개념일지(1차 제출)를 완료해야 친구 발표를 들을 수 있습니다.' };
+  }
+
+  return {
+    valid: true,
+    ownSectionId: ownSectionId,
+    doneSectionIds: getLearningDoneSectionIds_(studentId)
+  };
+}
+
+// learning.html 전체 제출 (빈칸만, AI검증/인과서술 없음, 여러 번 제출 가능 - 본인 분과 제외 나머지 3개)
+function submitLearningWorksheet(payload) {
+  // payload: { studentId, studentName, sectionId, blanks: [...] }
+  if (!verifyStudent_(payload.studentId, payload.studentName)) {
+    return { success: false, message: '학번 또는 이름이 명단과 일치하지 않습니다.' };
+  }
+
+  var ownSectionId = getOwnSectionId_(payload.studentId);
+  if (!ownSectionId) {
+    return { success: false, message: '먼저 본인의 핵심 개념일지(1차 제출)를 완료해야 합니다.' };
+  }
+  if (String(payload.sectionId) === String(ownSectionId)) {
+    return { success: false, message: '본인이 발표한(제출한) 분과는 청취 분과로 선택할 수 없습니다.' };
+  }
+
+  var doneIds = getLearningDoneSectionIds_(payload.studentId);
+  if (doneIds.indexOf(String(payload.sectionId)) !== -1) {
+    return { success: false, message: '이미 이 분과는 제출을 완료했습니다.' };
+  }
+
+  var keys = SECTION_BLANKS[payload.sectionId];
+  for (var i = 0; i < keys.length; i++) {
+    var ok = keys[i].some(function (k) { return normalize_(k) === normalize_(payload.blanks[i]); });
+    if (!ok) {
+      return { success: false, message: (i + 1) + '번째 빈칸이 정답이 아닙니다. 다시 확인해주세요.' };
+    }
+  }
+
+  var sheet = getLearningSheet_();
+  sheet.appendRow([
+    new Date(),
+    payload.studentId,
+    payload.studentName,
+    SECTION_META[payload.sectionId].title,
+    payload.blanks.join(' / ')
+  ]);
+
+  return { success: true, doneSectionIds: doneIds.concat([String(payload.sectionId)]) };
 }
