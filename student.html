@@ -25,6 +25,17 @@
     .blank-qa { background: #f6f8fa; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
     .blank-q { font-size: 13px; color: #555; line-height: 1.5; margin-bottom: 4px; }
     .blank-a { font-size: 14px; font-weight: bold; color: #1a4fbf; }
+    .score-total { font-size: 28px; font-weight: bold; color: #2d6cdf; text-align: center; margin-bottom: 4px; }
+    .score-total span { font-size: 16px; color: #888; font-weight: normal; }
+    .score-list { margin-top: 14px; }
+    .score-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .score-row:last-child { border-bottom: none; }
+    .score-badge { font-weight: bold; padding: 3px 10px; border-radius: 999px; font-size: 13px; white-space: nowrap; margin-left: 10px; }
+    .score-badge.got { background: #e3f7e8; color: #1a7a36; }
+    .score-badge.missed { background: #f0f0f0; color: #999; }
+    .point-badge { font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+    .point-badge.got { background: #e3f7e8; color: #1a7a36; }
+    .point-badge.missed { background: #f0f0f0; color: #999; }
   </style>
 </head>
 <body>
@@ -39,6 +50,13 @@
     <input type="text" id="studentName" placeholder="이름 입력">
     <div id="step0-msg"></div>
     <button onclick="loadMySubmissions()" id="loadBtn">확인하기</button>
+  </div>
+
+  <!-- STEP 0.5: 점수 요약 -->
+  <div id="scoreCard" class="card hidden">
+    <div class="result-title">🏆 내 점수</div>
+    <div class="score-total" id="scoreTotal"></div>
+    <div class="score-list" id="scoreList"></div>
   </div>
 
   <!-- STEP 1: 본인 핵심 개념일지 제출 결과 -->
@@ -151,12 +169,43 @@ function loadMySubmissions() {
       return;
     }
     msg.innerHTML = '';
+    renderScore(res.own, res.learning);
     renderOwn(res.own);
     renderLearning(res.learning);
   }).catch(function (err) {
     btn.disabled = false;
     msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
   });
+}
+
+function renderScore(own, learning) {
+  var card = document.getElementById('scoreCard');
+  card.classList.remove('hidden');
+
+  var hasOwnQuiz = !!own;
+  var hasAiCheck = !!(own && own.aiCheck && own.aiCheck.trim().length > 0);
+  var hasLifeAnswer = !!(own && own.lifeAnswer && own.lifeAnswer.trim().length > 0);
+  var learningCount = (learning || []).length;
+
+  var items = [
+    { label: '자신의 분과 퀴즈 풀기', got: hasOwnQuiz, point: 1 },
+    { label: 'AI 검증하기', got: hasAiCheck, point: 1 },
+    { label: '지구온난화가 삶에 미치는 영향 인과단계', got: hasLifeAnswer, point: 2 },
+    { label: '다른 분과 퀴즈 풀기 1', got: learningCount >= 1, point: 1 },
+    { label: '다른 분과 퀴즈 풀기 2', got: learningCount >= 2, point: 1 },
+    { label: '다른 분과 퀴즈 풀기 3', got: learningCount >= 3, point: 1 }
+  ];
+
+  var total = items.reduce(function (sum, it) { return sum + (it.got ? it.point : 0); }, 0);
+  var max = items.reduce(function (sum, it) { return sum + it.point; }, 0);
+
+  document.getElementById('scoreTotal').innerHTML = total + '<span> / ' + max + '점</span>';
+  document.getElementById('scoreList').innerHTML = items.map(function (it) {
+    return '<div class="score-row">' +
+      '<span>' + it.label + '</span>' +
+      '<span class="score-badge ' + (it.got ? 'got' : 'missed') + '">' + (it.got ? '✅ ' + it.point + '점' : '미완료 0점') + '</span>' +
+      '</div>';
+  }).join('');
 }
 
 function renderOwn(own) {
@@ -169,11 +218,14 @@ function renderOwn(own) {
     return;
   }
 
+  var hasAiCheck = !!(own.aiCheck && own.aiCheck.trim().length > 0);
+  var hasLifeAnswer = !!(own.lifeAnswer && own.lifeAnswer.trim().length > 0);
+
   content.innerHTML =
     '<div class="meta">제출 시각: ' + own.timestamp + ' / 분과: ' + own.section + '</div>' +
-    '<div class="field"><div class="field-label">빈칸 채우기</div>' + renderBlanksWithPrompts(own.section, own.blanks) + '</div>' +
-    '<div class="field"><div class="field-label">💡 AI 교차 검증 기록</div><div class="field-value">' + escapeHtml_(own.aiCheck) + '</div></div>' +
-    '<div class="field"><div class="field-label">➡️ 인과 단계 서술</div><div class="field-value">' + escapeHtml_(own.lifeAnswer) + '</div></div>';
+    '<div class="field"><div class="field-label">빈칸 채우기 <span class="point-badge got">✅ 1점</span></div>' + renderBlanksWithPrompts(own.section, own.blanks) + '</div>' +
+    '<div class="field"><div class="field-label">💡 AI 교차 검증 기록 <span class="point-badge ' + (hasAiCheck ? 'got">✅ 1점' : 'missed">미완료 0점') + '</span></div><div class="field-value">' + escapeHtml_(own.aiCheck) + '</div></div>' +
+    '<div class="field"><div class="field-label">➡️ 인과 단계 서술 <span class="point-badge ' + (hasLifeAnswer ? 'got">✅ 2점' : 'missed">미완료 0점') + '</span></div><div class="field-value">' + escapeHtml_(own.lifeAnswer) + '</div></div>';
 }
 
 function renderLearning(learning) {
@@ -188,7 +240,8 @@ function renderLearning(learning) {
 
   content.innerHTML = learning.map(function (item, idx) {
     return '<div class="learning-item' + (idx === 0 ? ' first' : '') + '">' +
-      '<div class="meta">제출 시각: ' + item.timestamp + ' / 분과: ' + item.section + '</div>' +
+      '<div class="meta">제출 시각: ' + item.timestamp + ' / 분과: ' + item.section +
+      ' <span class="point-badge got">다른 분과 퀴즈 풀기 ' + (idx + 1) + ' · ✅ 1점</span></div>' +
       renderBlanksWithPrompts(item.section, item.blanks) +
       '</div>';
   }).join('');
