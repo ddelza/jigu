@@ -2,6 +2,7 @@
 var SHEET_ID = '1xoVrbYWU1BwfoJwN2e0CBXlDKE4zt_upD4OtqasnV3I'; // 제출 데이터를 쌓을 스프레드시트 ID
 var SHEET_NAME = '제출현황';
 var LEARNING_SHEET_NAME = '제출현황2'; // learning.html(친구 발표 듣기) 제출 기록
+var PASSWORD_SHEET_ID = '1JcgoufQUypJR6ItEBGWR7xVE-e1vBqXqfYddkEgXlJg'; // student.html 접속 시 본인 확인용 비밀번호가 있는 스프레드시트 (학번/비밀번호 탭)
 
 // 분과별 정답 (여러 정답 허용: 배열로 등록, 공백/대소문자 무시 비교)
 // 빈칸 개수: ①7개, ②6개, ③6개, ④6개 (최종 확정본 기준)
@@ -98,7 +99,7 @@ function doGet(e) {
   } else if (action === 'checkLearningStatus') {
     result = checkLearningStatus(e.parameter.studentId, e.parameter.studentName);
   } else if (action === 'getMySubmissions') {
-    result = getMySubmissions(e.parameter.studentId, e.parameter.studentName);
+    result = getMySubmissions(e.parameter.studentId, e.parameter.studentName, e.parameter.password);
   } else {
     result = { error: 'unknown action' };
   }
@@ -313,10 +314,37 @@ function submitLearningWorksheet(payload) {
   return { success: true, doneSectionIds: doneIds.concat([String(payload.sectionId)]) };
 }
 
-// 클라이언트(student.html)에서 호출: 본인이 제출한 1차/2차 답안을 모두 조회 (읽기 전용)
-function getMySubmissions(studentId, studentName) {
+// 비밀번호 스프레드시트에서 학번/비밀번호 열을 찾아 일치 여부 확인
+function verifyPassword_(studentId, password) {
+  var ss = SpreadsheetApp.openById(PASSWORD_SHEET_ID);
+  var sheet = ss.getSheets()[0];
+  var data = sheet.getDataRange().getValues();
+  if (data.length === 0) return false;
+
+  var header = data[0];
+  var idCol = -1, pwCol = -1;
+  for (var c = 0; c < header.length; c++) {
+    var h = normalize_(header[c]);
+    if (h.indexOf('학번') !== -1 && idCol === -1) idCol = c;
+    if (h.indexOf('비밀번호') !== -1 && pwCol === -1) pwCol = c;
+  }
+  if (idCol === -1 || pwCol === -1) return false;
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]).trim() === String(studentId).trim()) {
+      return String(data[i][pwCol]).trim() === String(password || '').trim();
+    }
+  }
+  return false;
+}
+
+// 클라이언트(student.html)에서 호출: 본인이 제출한 1차/2차 답안을 모두 조회 (읽기 전용, 비밀번호 확인 필요)
+function getMySubmissions(studentId, studentName, password) {
   if (!verifyStudent_(studentId, studentName)) {
     return { valid: false, message: '학번 또는 이름이 명단과 일치하지 않습니다. 다시 확인해주세요.' };
+  }
+  if (!verifyPassword_(studentId, password)) {
+    return { valid: false, message: '비밀번호가 일치하지 않습니다. 다시 확인해주세요.' };
   }
 
   var own = null;

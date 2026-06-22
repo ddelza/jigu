@@ -48,6 +48,8 @@
     <input type="text" id="studentId" placeholder="예: 3101 (3학년 1반 1번)">
     <label>이름</label>
     <input type="text" id="studentName" placeholder="이름 입력">
+    <label>비밀번호</label>
+    <input type="password" id="studentPassword" placeholder="비밀번호 입력">
     <div id="step0-msg"></div>
     <button onclick="loadMySubmissions()" id="loadBtn">확인하기</button>
   </div>
@@ -150,19 +152,20 @@ function apiGet(params) {
 function loadMySubmissions() {
   var id = document.getElementById('studentId').value.trim();
   var name = document.getElementById('studentName').value.trim();
+  var password = document.getElementById('studentPassword').value.trim();
   var msg = document.getElementById('step0-msg');
   var btn = document.getElementById('loadBtn');
   msg.innerHTML = '';
 
-  if (!id || !name) {
-    msg.innerHTML = '<div class="msg error">학번과 이름을 모두 입력해주세요.</div>';
+  if (!id || !name || !password) {
+    msg.innerHTML = '<div class="msg error">학번, 이름, 비밀번호를 모두 입력해주세요.</div>';
     return;
   }
 
   btn.disabled = true;
   msg.innerHTML = '<div class="msg success">조회 중...</div>';
 
-  apiGet({ action: 'getMySubmissions', studentId: id, studentName: name }).then(function (res) {
+  apiGet({ action: 'getMySubmissions', studentId: id, studentName: name, password: password }).then(function (res) {
     btn.disabled = false;
     if (!res.valid) {
       msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
