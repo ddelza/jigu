@@ -29,6 +29,13 @@
   .arrow-btn:hover { background: #eaf1ff; }
   .arrow-hint { font-size: 12px; color: #888; margin-top: 4px; }
   #thanks { text-align: center; margin-top: 60px; }
+  .point-tag { font-size: 12.5px; font-weight: bold; color: #2d6cdf; background: #eaf1ff; border-radius: 999px; padding: 2px 9px; margin-left: 4px; }
+  .rubric-box {
+    border: 1.5px solid #2d6cdf; border-radius: 8px; padding: 12px 16px; margin: 8px 0 4px;
+    background: #f5f8ff; font-size: 13.5px; line-height: 1.7;
+  }
+  .rubric-box .rubric-title { font-weight: bold; color: #2d6cdf; margin-bottom: 6px; }
+  .rubric-box ul { margin: 0; padding-left: 18px; }
 </style>
 </head>
 <body>
@@ -47,9 +54,9 @@
 
   <!-- STEP 1: 제출 폼 -->
   <div id="step1" class="card hidden">
-    <div class="step-label">STEP 2. 인과 사슬 & 가치 관점 작성</div>
+    <div class="step-label">STEP 2. 인과 사슬 & 가치 관점 작성 <span class="point-tag">총 6점</span></div>
 
-    <label>질문 1. 기후 재난 인과관계 배치 게임에서 찾은 인과 중, 4가지 요소 이상으로 구성된 가장 긴 사슬을 화살표(➡️)를 이용해 옮겨 적어보세요.
+    <label>질문 1. 기후 재난 인과관계 배치 게임에서 찾은 인과 중, 4가지 요소 이상으로 구성된 가장 긴 사슬을 화살표(➡️)를 이용해 옮겨 적어보세요. <span class="point-tag">2점</span>
       <div class="sub-label">예: 화석 연료 사용 ➡️ 온실기체 배출량 급증 ➡️ 지구 온난화 ➡️ 해수면 상승</div>
     </label>
     <div class="field-row">
@@ -76,7 +83,14 @@
       <option value="윤리적 관점">🤝 윤리적 관점</option>
     </select>
 
-    <label>질문 2-3. 내가 중요하게 생각하는 가치로부터, 왜 위의 관점을 선택했는지 구체적으로 설명하세요.</label>
+    <label>질문 2-3. 내가 중요하게 생각하는 가치로부터, 왜 위의 관점을 선택했는지 구체적으로 설명하세요. <span class="point-tag">4점</span></label>
+    <div class="rubric-box">
+      <div class="rubric-title">📋 채점 기준</div>
+      <ul>
+        <li>나의 가치관이 중요한 이유 (2점)</li>
+        <li>내 가치관이 왜 위의 관점과 연결될 수 있는지 (2점)</li>
+      </ul>
+    </div>
     <textarea id="reason" placeholder="나의 가치관과 선택한 관점을 연결지어 구체적으로 작성해보세요."></textarea>
 
     <div id="save-msg"></div>
