@@ -415,6 +415,14 @@ function attemptConnect(fromId, toId, targetCardEl) {
   const valid = (EDGES[fromId] || []).includes(toId);
 
   if (valid) {
+    // 클릭으로 끊을 수 있도록 보이지 않는 굵은 히트 영역을 먼저 깔아둠
+    const hit = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    hit.setAttribute('stroke', 'transparent');
+    hit.setAttribute('stroke-width', '18');
+    hit.style.pointerEvents = 'stroke';
+    hit.style.cursor = 'pointer';
+    svgEl.appendChild(hit);
+
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     path.setAttribute('class', 'edge-line good');
     path.setAttribute('stroke', '#34d399');
@@ -423,14 +431,23 @@ function attemptConnect(fromId, toId, targetCardEl) {
     path.setAttribute('marker-end', 'url(#arrow-green)');
     path.style.filter = 'drop-shadow(0 0 6px #34d399)';
     path.style.animation = 'dashflow 1s linear infinite';
+    path.style.pointerEvents = 'stroke';
+    path.style.cursor = 'pointer';
     svgEl.appendChild(path);
 
-    edgesMade.push({ from: fromId, to: toId, el: path });
+    const edgeRecord = { from: fromId, to: toId, el: path, hitEl: hit };
+    edgesMade.push(edgeRecord);
     updateLinePosition(path, fromId, toId);
+    updateLinePosition(hit, fromId, toId);
+
+    const removeThis = () => removeEdge(edgeRecord);
+    path.addEventListener('click', removeThis);
+    hit.addEventListener('click', removeThis);
+    path.title = '클릭하면 연결이 끊어집니다';
 
     score += 10;
     document.getElementById('score-val').textContent = score;
-    showToast('⚡ 올바른 인과관계입니다! +10점', 'good');
+    showToast('⚡ 올바른 인과관계입니다! +10점 (클릭하면 끊을 수 있어요)', 'good');
     recomputeLongestChain();
   } else {
     const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -449,6 +466,20 @@ function attemptConnect(fromId, toId, targetCardEl) {
 
     showToast('❌ 이건 인과관계가 아니에요. 다시 생각해보세요!', 'bad');
   }
+}
+
+// ===================== 연결 끊기 =====================
+function removeEdge(edgeRecord) {
+  const idx = edgesMade.indexOf(edgeRecord);
+  if (idx === -1) return;
+  edgesMade.splice(idx, 1);
+  edgeRecord.el.remove();
+  edgeRecord.hitEl.remove();
+
+  score = Math.max(0, score - 10);
+  document.getElementById('score-val').textContent = score;
+  showToast('🔌 연결을 끊었습니다. -10점', 'bad');
+  recomputeLongestChain();
 }
 
 function getCardCenter(id) {
@@ -470,7 +501,10 @@ function updateLinePosition(line, fromId, toId) {
 
 function refreshLinesFor(id) {
   edgesMade.forEach(ed => {
-    if (ed.from === id || ed.to === id) updateLinePosition(ed.el, ed.from, ed.to);
+    if (ed.from === id || ed.to === id) {
+      updateLinePosition(ed.el, ed.from, ed.to);
+      updateLinePosition(ed.hitEl, ed.from, ed.to);
+    }
   });
 }
 
