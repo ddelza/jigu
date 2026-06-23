@@ -59,9 +59,12 @@
     <div class="arrow-hint">버튼을 누르면 커서 위치에 화살표(➡️)가 입력되고, 클립보드에도 복사됩니다.</div>
 
     <label>질문 2-1. 내가 평소에 중요하게 생각하는 가치는 무엇인가요?
-      <div class="sub-label">예: 공정함, 효율성, 생명 존중, 정직함 등 한 단어 또는 짧은 문장으로</div>
+      <div class="sub-label">아래 9가지 가치 중 나에게 가장 가까운 것을 골라보세요.</div>
     </label>
-    <input type="text" id="myValue" placeholder="예: 공정함">
+    <select id="myValue" onchange="updateValueDesc()">
+      <option value="">선택해주세요</option>
+    </select>
+    <div id="value-desc" class="sub-label" style="margin-top:6px;"></div>
 
     <label>질문 2-2. 내가 선택한 관점</label>
     <select id="perspective">
@@ -85,6 +88,37 @@
 
 <script>
 var APP_URL = 'https://script.google.com/macros/s/AKfycbwWjFVmcxHzg0GUIbySHl2orXll2siH1I5oAeZNP8VWmYSaVbQ5YOlYEe1o7X7-KcHQ/exec';
+
+var VALUES = [
+  { emoji: '🛡️', name: '안전', eng: 'Safety', desc: '어떠한 거대한 재난 앞에서도 사람들의 생명과 건강이 다치지 않게 최우선으로 보호받아야 한다고 생각합니다.' },
+  { emoji: '🍃', name: '쾌적', eng: 'Comfort', desc: '위기를 해결한다는 이유로 우리가 누려온 삶의 질을 떨어뜨리거나, 일상의 안락함을 포기해서는 안 된다고 생각합니다.' },
+  { emoji: '💰', name: '절약', eng: 'Savings', desc: '한정된 국가의 자원과 예산이 불필요한 곳에 허투루 낭비되는 것을 막고, 철저하게 아껴 써야 한다고 생각합니다.' },
+  { emoji: '📱', name: '편의', eng: 'Convenience', desc: '사람들에게 도덕적인 희생이나 불편함을 억지로 강요하기보다, 알아서 문제를 해결해 주는 편리한 시스템이 필요하다고 생각합니다.' },
+  { emoji: '⚖️', name: '공정', eng: 'Fairness', desc: '문제를 일으킨 사람과 그로 인해 고통받는 사람이 달라서 생기는 \'억울한 상황\'을 막고, 모두가 평등해야 한다고 생각합니다.' },
+  { emoji: '📈', name: '효율', eng: 'Efficiency', desc: '한정된 예산과 시간 속에서, 최소한의 비용과 노력으로 가장 빠르고 확실한 결과를 얻어내야 한다고 생각합니다.' },
+  { emoji: '🤝', name: '공존', eng: 'Coexistence', desc: '나 혼자만 잘 사는 것이 아니라, 이웃과 다른 나라 사람들, 그리고 동식물 생태계가 다 함께 어우러져 살아야 한다고 생각합니다.' },
+  { emoji: '🛑', name: '책임', eng: 'Responsibility', desc: '위기를 만든 원인 제공자라면, 자신이 저지른 잘못된 행동에 대해 피하지 않고 마땅한 대가를 치러야 한다고 생각합니다.' },
+  { emoji: '🚀', name: '혁신', eng: 'Innovation', desc: '과거의 낡은 방식이나 느린 제도에 얽매이지 않고, 한계를 뛰어넘는 과감하고 새로운 돌파구를 만들어야 한다고 생각합니다.' }
+];
+
+function populateValueSelect() {
+  var sel = document.getElementById('myValue');
+  VALUES.forEach(function (v) {
+    var opt = document.createElement('option');
+    opt.value = v.emoji + ' ' + v.name + ' (' + v.eng + ')';
+    opt.textContent = v.emoji + ' ' + v.name + ' (' + v.eng + ')';
+    sel.appendChild(opt);
+  });
+}
+populateValueSelect();
+
+function updateValueDesc() {
+  var sel = document.getElementById('myValue');
+  var idx = sel.selectedIndex - 1; // "선택해주세요"가 0번
+  var descEl = document.getElementById('value-desc');
+  if (idx < 0 || !VALUES[idx]) { descEl.textContent = ''; return; }
+  descEl.textContent = '💡 의미: ' + VALUES[idx].desc;
+}
 
 function apiGet(params) {
   var qs = Object.keys(params).map(function (k) {
