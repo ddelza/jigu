@@ -69,19 +69,33 @@
   .vs-btn.done { background: rgba(248,113,113,.25); border-color: var(--red); box-shadow: 0 0 16px rgba(248,113,113,.7); color: #ffdada; }
 
   #info-panel {
-    max-width: 720px; margin: 10px auto 40px; background: var(--panel); border: 1px solid var(--cyan);
+    max-width: 760px; margin: 10px auto 40px; background: var(--panel); border: 1px solid var(--cyan);
     border-radius: 14px; padding: 22px 26px; box-shadow: 0 0 26px rgba(56,232,224,.15); min-height: 120px;
   }
-  #info-panel h2 { margin: 0 0 10px; font-size: 17px; color: var(--cyan); }
+  #info-panel h2 { margin: 0 0 6px; font-size: 17px; color: var(--cyan); }
   #info-panel .placeholder { color: #8893c9; font-size: 14px; }
-  #info-panel .desc { font-size: 14px; line-height: 1.7; margin-bottom: 10px; }
-  #info-panel .solutions { font-size: 13.5px; line-height: 1.7; background: rgba(255,255,255,.04); border-radius: 10px; padding: 12px 16px; }
-  #info-panel .solutions b { color: var(--gold); }
+  #info-panel .philosophy {
+    font-size: 13.5px; font-style: italic; color: var(--gold); margin: 4px 0 14px; line-height: 1.6;
+    border-left: 3px solid var(--gold); padding-left: 12px;
+  }
+  #info-panel .desc { font-size: 14px; line-height: 1.7; margin-bottom: 14px; }
+  #info-panel .solutions-label { font-size: 13.5px; font-weight: bold; color: var(--gold); margin-bottom: 8px; }
+  .solution-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .solution-card { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; }
+  .solution-card .sc-title { font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 4px; }
+  .solution-card .sc-desc { font-size: 12.5px; line-height: 1.55; color: #c7d2f4; }
+
   .conflict-row { display: flex; gap: 14px; flex-wrap: wrap; }
-  .conflict-box { flex: 1; min-width: 240px; background: rgba(255,255,255,.04); border-radius: 10px; padding: 12px 16px; font-size: 13.5px; line-height: 1.6; }
-  .conflict-box .side { font-weight: bold; margin-bottom: 6px; }
+  .conflict-box { flex: 1; min-width: 260px; background: rgba(255,255,255,.04); border-radius: 10px; padding: 14px 16px; font-size: 13.5px; line-height: 1.6; }
+  .conflict-box .side { font-weight: bold; margin-bottom: 8px; font-size: 14px; }
   .conflict-box.attack .side { color: var(--red); }
   .conflict-box.rebut .side { color: var(--cyan); }
+  .attack-point { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--line); }
+  .attack-point:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .attack-point .ap-title { font-weight: bold; font-size: 12.5px; color: #fff; margin-bottom: 4px; }
+  .attack-point .ap-logic { font-size: 12.5px; color: #c7d2f4; margin-bottom: 6px; }
+  .attack-point .ap-quote { font-size: 12.5px; font-style: italic; color: #9fb3ff; background: rgba(0,0,0,.2); border-radius: 8px; padding: 8px 10px; }
+  .attack-point .ap-quote::before { content: '🗣️ '; }
 
   /* ===== Modal ===== */
   #modal-overlay {
@@ -98,6 +112,13 @@
   #modal-box h2 { margin: 0 0 14px; font-size: 20px; color: var(--cyan); text-shadow: 0 0 10px rgba(56,232,224,.7); }
   #modal-box p { font-size: 14.5px; line-height: 1.7; margin: 0 0 22px; color: #e6f1ff; }
   #modal-box .budget { font-size: 26px; font-weight: bold; color: var(--gold); text-shadow: 0 0 12px rgba(250,204,21,.6); margin-bottom: 6px; }
+  #modal-box .decision-q {
+    text-align: left; background: rgba(255,255,255,.05); border-radius: 12px; padding: 14px 18px; margin: 0 0 22px;
+    font-size: 13px; line-height: 1.6;
+  }
+  #modal-box .decision-q .dq-title { font-weight: bold; color: var(--cyan); margin-bottom: 8px; font-size: 13.5px; text-align: center; }
+  #modal-box .decision-q .dq-item { margin-bottom: 6px; }
+  #modal-box .decision-q .dq-item b { color: var(--gold); }
   #submit-link {
     display: inline-block; background: linear-gradient(135deg, var(--cyan), #2563eb); color: #04111a; font-weight: bold;
     padding: 14px 30px; border-radius: 10px; text-decoration: none; font-size: 15px; box-shadow: 0 0 22px rgba(56,232,224,.6);
@@ -161,6 +182,12 @@
     <h2>🌍 모든 관점의 주장과 한계를 확인했습니다!</h2>
     <div class="budget">100조 원</div>
     <p>여러분은 이 예산을 어디에 투자하시겠습니까?<br>경제, 기술, 윤리 중 어떤 관점을 선택하실 건가요?<br>지금까지 살펴본 주장과 반박을 떠올려보고, 나의 입장을 정해보세요.</p>
+    <div class="decision-q">
+      <div class="dq-title">🌏 "네가 지구 대통령이 되어 당장 100조 원을 쓸 수 있다면?"</div>
+      <div class="dq-item">💰 <b>경제팀</b> — 기업들에게 세금을 걷고, 친환경 에너지 회사를 지원하는 데 쓸 것인가?</div>
+      <div class="dq-item">🔬 <b>기술팀</b> — 공기 중 이산화탄소를 빨아들이는 최첨단 기계를 발명하는 데 쓸 것인가?</div>
+      <div class="dq-item">🤝 <b>윤리팀</b> — 당장 폭염에 쓰러지는 어르신과 홍수로 집을 잃은 사람들을 살리는 데 쓸 것인가?</div>
+    </div>
     <a id="submit-link" href="student_value.html">📝 나의 관점 제출하기</a>
     <button id="modal-close">나중에 할게요</button>
   </div>
@@ -170,36 +197,78 @@
 const NODE_DATA = {
   economy: {
     emoji: '💰', title: '경제적 관점',
-    desc: '세상을 움직이는 건 돈과 시장이다. 시장의 흐름을 바꿔 탄소 배출을 손해로, 친환경을 이익으로 만들어야 한다.',
-    solutions: '탄소세 도입, 탄소 배출권 거래제, 재생 에너지 막대한 보조금 지급, 농업 피해 보상 예산 투입.'
+    philosophy: '"세상을 움직이는 건 결국 돈과 시장이다." 기후위기는 도덕성의 타락이나 기술 부족이 아니라 \'시장의 실패\' 때문에 생겼다 — 탄소를 배출해도 아무 비용을 내지 않았기 때문이다. 돈의 흐름을 바꾸면 사람과 기업의 행동도 바뀐다.',
+    desc: '탄소 배출은 \'손해\'로, 친환경 행동은 \'이익\'이 되도록 예산·세금·보조금·투자 같은 경제적 수단을 동원해 문제를 해결하려는 관점입니다.',
+    solutions: [
+      { title: '① 탄소를 배출할 거면 돈을 내라! (탄소 가격제)', desc: '탄소세 도입: 이산화탄소 1톤당 강력한 세금을 매겨 기업이 스스로 화석 연료 사용을 줄이게 함. 탄소 배출권 거래제: 배출 허용량을 정하고 초과분은 비싼 돈을 주고 거래하게 함.' },
+      { title: '② 착한 산업에 예산을 몰아주자! (보조금·인프라)', desc: '태양광·풍력 발전에 막대한 국가 보조금을 지급해 친환경 에너지를 화석 연료보다 싸게 만들고, 전기차 충전소·노후 화물차 교체 지원 등 인프라를 전환.' },
+      { title: '③ 나쁜 기업의 돈줄을 끊자! (금융 압박·ESG)', desc: '화석 연료 기업에는 대출을 막거나 투자를 철회하도록 제도화해, 돈줄이 마른 탄소 배출 기업이 자연스럽게 도태되게 함.' },
+      { title: '④ 재난의 충격을 돈으로 막아내자! (피해 방어)', desc: '농경지 침수로 식량 가격이 폭등할 때, 농가에 막대한 피해 보조금을 지급해 밥상 물가를 안정시키고 국민 경제 붕괴를 막음.' }
+    ]
   },
   tech: {
     emoji: '🔬', title: '기술적 관점',
-    desc: '인간의 한계는 과학으로 돌파한다. 이미 배출된 탄소와 올라간 온도를 물리적이고 즉각적인 기술로 제어해야 한다.',
-    solutions: '초대형 대기 탄소 포집기(CCUS) 설치, 지구 공학(우주 반사경, 성층권 에어로졸), AI 스마트 기상 방어망, 인공태양(핵융합).'
+    philosophy: '"인간의 한계는 과학 기술과 기후 공학으로 돌파한다." 도덕성에 호소하거나 시장 제도를 고치는 건 너무 느리고 불확실하다. 이미 배출된 탄소와 올라간 온도는 물리적인 과학 기술로 직접 제어해야 한다.',
+    desc: '혁신적인 발명과 데이터(AI) 기반의 완벽한 통제를 통해 온도 상승을 가장 빠르고 확실하게 막아내려는 관점입니다.',
+    solutions: [
+      { title: '① 온실기체를 직접 빨아들이자! (CCUS)', desc: '공기 직접 포집(DAC) 기계로 대기 중 이산화탄소를 빨아들여 땅속·바다 밑에 영구 저장. 인공 광합성 나무로 도심에 흡수 시설을 숲처럼 조성.' },
+      { title: '② 태양열을 튕겨내자! (지구 공학)', desc: '성층권에 미세 입자를 뿌려 태양 복사 에너지를 반사시키거나, 지구-태양 사이에 거대한 우주 반사경을 띄워 햇빛을 물리적으로 차단.' },
+      { title: '③ 재난을 완벽하게 예측·방어하자! (AI 방어망)', desc: 'AI와 슈퍼컴퓨터로 이상 한파·폭우 경로를 분 단위로 예측하고, 정전을 막는 인공지능 스마트 전력망(스마트 그리드)을 구축.' },
+      { title: '④ 궁극의 청정 에너지를 만들자! (차세대 에너지)', desc: '탄소 배출이 전혀 없는 핵융합(인공 태양) 발전 상용화에 예산을 집중 투자해 화석 연료 시대를 완전히 종료.' }
+    ]
   },
   ethics: {
     emoji: '🤝', title: '윤리·사회적 관점',
-    desc: '기후위기는 불평등과 인권의 문제다. 돈과 기술을 기다릴 시간이 없으며, 당장 죽어가는 취약계층의 생존부터 법으로 지켜야 한다.',
-    solutions: '야외 노동자 기후 휴업 수당 지급, 기후 난민 구호 기금, 대중교통 전면 무료화, 육류 소비 및 일회용품 강력 규제.'
+    philosophy: '"기후위기는 기술이나 돈의 문제가 아니라 \'인권과 불평등\'의 문제다." 돈이 많고 기술이 뛰어난 쪽은 살아남고, 탄소를 거의 배출하지 않은 가난한 나라와 취약계층만 먼저 죽어가는 불평등에 분노한다.',
+    desc: '재난에 가장 먼저 쓰러지는 취약계층(노약자, 야외 노동자 등)을 보호하고, 생존권과 정의를 지키는 법·제도 마련에 예산을 최우선으로 써야 한다는 관점입니다.',
+    solutions: [
+      { title: '① 가장 먼저 쓰러지는 사람을 당장 살려라! (생존권 보장)', desc: '폭염 경보 시 야외 노동자 작업을 법으로 강제 중단시키고 임금을 \'기후 재난 수당\'으로 보전. 반지하·쪽방촌 주민을 안전한 공공 임대주택으로 이주.' },
+      { title: '② 많이 배출한 자가 책임져라! (기후 정의·국제 연대)', desc: '온실가스를 많이 배출한 선진국·대기업의 책임으로, 해수면 상승으로 잠기는 섬나라나 가뭄에 굶주리는 난민을 돕는 \'기후 난민 구조 펀드\' 조성.' },
+      { title: '③ 사회 시스템 자체를 강제로 바꾸자! (강력한 규제)', desc: '대중교통 전면 무료화로 자가용 의존을 없애고, 육류 소비·일회용품 생산을 법으로 강하게 제한.' },
+      { title: '④ 미래 세대의 권리를 지켜라! (세대 형평성)', desc: '청소년·어린이가 국가 기후 정책 결정에 의무적으로 참여하도록 법제화하고, 전 국민 기후 시민 교육에 예산 편성.' }
+    ]
   }
 };
 
 const CONFLICT_DATA = {
   a: {
-    title: '⚔️ 갈등 A: 경제 VS 기술',
-    attackSide: '💰 경제팀의 공격', attack: '기술은 언제 완성될지 모르는 비싼 도박이다! 완성 전에 지구가 멸망한다. 당장 탄소세로 배출을 줄이는 게 빠르다.',
-    rebutSide: '🔬 기술팀의 반박', rebut: '세금 걷는다고 지구 온도가 당장 내려가냐? 제도로 돈놀이할 시간에 당장 대기 중의 탄소를 포집하는 게 유일한 물리적 해결책이다!'
+    title: '⚔️ 갈등 A: 경제 VS 기술 — "시장 통제" VS "물리적 제어"',
+    attackSide: '💰 경제팀이 ➡️ 🔬 기술팀을 공격할 때', attackIntro: '창: "기술은 너무 느리고 비싼 도박이다!"',
+    attacks: [
+      { title: '공격 포인트 1: 시간 부족 (불확실성)', logic: '기후 공학 기술이 전 지구적으로 상용화되려면 수십 년이 걸리는데, 그 전에 이미 \'티핑 포인트\'를 지나 지구가 멸망할 것이다.', quote: '"그 대단한 인공 태양이나 초대형 탄소 포집기가 전 세계에 설치되는 게 언젠가요? 그거 발명하는 동안 이미 빙하 다 녹고 우리 다 물에 잠깁니다. 당장 탄소세 폭탄으로 배출을 줄이는 게 훨씬 빠르고 확실하지 않습니까?"' },
+      { title: '공격 포인트 2: 비용 대비 효율(가성비) 최악', logic: '아직 성공할지도 모르는 기술 개발에 100조 원을 몰아주느니, 이미 검증된 태양광·풍력 보조금이 훨씬 경제적이다.', quote: '"검증도 안 된 기술 도박에 돈을 쏟느니, 이미 작동하는 재생에너지에 투자하는 게 가성비가 훨씬 좋습니다!"' }
+    ],
+    rebutSide: '🔬 기술팀이 ➡️ 💰 경제팀을 공격할 때', rebutIntro: '창: "세금 걷는다고 당장 기온이 내려가냐!"',
+    rebuts: [
+      { title: '공격 포인트 1: 이미 배출된 탄소는 어쩔 것인가', logic: '탄소세를 매긴다고 해서 이미 공기 중에 뿜어져 있는 이산화탄소가 사라지는 건 아니며, 온도를 물리적으로 낮출 수 없다.', quote: '"탄소세 100조 원 걷으면 내일 당장 지구 온도가 1도 떨어집니까? 기업은 세금만큼 물건값 올려서 떠넘길 겁니다. 그 돈으로 직접 탄소를 포집하는 게 유일한 물리적 해결책입니다!"' },
+      { title: '공격 포인트 2: 그린워싱과 풍선 효과', logic: '경제적 규제만 가하면 기업이 규제 없는 나라로 공장을 옮기거나(탄소 누출), 서류상으로만 줄인 척(그린워싱) 할 것이다.', quote: '"세금 피하려고 공장을 다른 나라로 옮기면 전 지구 탄소량은 똑같습니다. 눈에 보이는 기술로 직접 해결해야 합니다!"' }
+    ]
   },
   b: {
-    title: '⚔️ 갈등 B: 기술 VS 윤리',
-    attackSide: '🔬 기술팀의 공격', attack: '캠페인하고 생활 습관 바꿀 시간 없다! 도덕적인 호소만으로는 펄펄 끓는 지구를 식힐 수 없다.',
-    rebutSide: '🤝 윤리팀의 반박', rebut: '그 잘난 기술이 발명될 때까지 당장 폭염에 쓰러지는 쪽방촌 노약자들은 죽으라는 거냐? 기술은 부자들만 살아남게 하는 핑계다!'
+    title: '⚔️ 갈등 B: 기술 VS 윤리 — "물리적 통제" VS "당장의 생존과 인권"',
+    attackSide: '🔬 기술팀이 ➡️ 🤝 윤리팀을 공격할 때', attackIntro: '창: "도덕성만으로는 지구를 식힐 수 없다!"',
+    attacks: [
+      { title: '공격 포인트 1: 스케일과 속도의 한계', logic: '생활 습관을 바꾸고 대중교통을 무료화한다고 이미 임계점을 넘은 지구 온도를 극적으로 낮출 수는 없다. 80억 명을 도덕적으로 설득할 시간이 없다.', quote: '"플라스틱 좀 덜 쓰고 대중교통 탄다고 지금 당장 펄펄 끓는 지구 온도가 떨어집니까? 당장 기후 공학으로 식히는 게 가장 빠른 과학적 방법입니다!"' },
+      { title: '공격 포인트 2: 근본 원인 해결 부재', logic: '재난 수당과 이주는 \'증상 완화(진통제)\'일 뿐, 지구 온난화 자체를 고치는 \'치료제(기술)\'가 될 수 없다.', quote: '"수당 주는 건 아픈 사람한테 진통제 주는 것일 뿐, 병의 원인을 고치진 못합니다!"' }
+    ],
+    rebutSide: '🤝 윤리팀이 ➡️ 🔬 기술팀을 공격할 때', rebutIntro: '창: "기술은 불평등을 방치하는 부자들의 핑계다!"',
+    rebuts: [
+      { title: '공격 포인트 1: 지금 당장의 생존 외면', logic: '최첨단 기술이 언제 상용화될지 모르는데, 그걸 기다리는 동안 폭염·홍수에 노출된 취약계층의 죽음을 방치하고 있다.', quote: '"우주 반사경이 완성될 때까지 당장 이번 여름 폭염에 쓰러지는 할머니들과 노동자들은 그냥 죽으라는 겁니까? 100조 원은 지금 당장 사람을 살리는 생존 자금으로 써야 합니다!"' },
+      { title: '공격 포인트 2: 기술이 낳는 새로운 불평등', logic: '탄소 포집·기상 통제 기술이 개발돼도, 그 기술을 살 돈이 있는 선진국만 살아남고 가난한 나라는 버려질 것이다.', quote: '"그 기술, 결국 돈 있는 나라만 쓸 수 있는 거 아닙니까? 가난한 나라는 또 버려지는 겁니다!"' }
+    ]
   },
   c: {
-    title: '⚔️ 갈등 C: 윤리 VS 경제',
-    attackSide: '🤝 윤리팀의 공격', attack: '탄소세 걷어봤자 결국 전기세, 물건값 올라서 서민들만 얼어 죽는다! 시장 논리는 돈 있는 대기업에 오염 면죄부를 줄 뿐이다.',
-    rebutSide: '💰 경제팀의 반박', rebut: '피해자들에게 100조 원을 수당으로 다 나눠주면, 화석 연료 시스템 자체를 바꿀 예산이 없어서 결국 내년에 또 다 죽는다!'
+    title: '⚔️ 갈등 C: 윤리 VS 경제 — "당장의 생존과 인권" VS "자본 시장의 효율성"',
+    attackSide: '🤝 윤리팀이 ➡️ 💰 경제팀을 공격할 때', attackIntro: '창: "시장의 논리가 가난한 자들을 죽이고 있다!"',
+    attacks: [
+      { title: '공격 포인트 1: 물가 폭등과 서민 피해', logic: '기업에 세금을 매기면 결국 물건값·전기 요금을 올려 평범한 사람들에게 피해를 떠넘긴다.', quote: '"기업한테 탄소세 걷으면 결국 전기세 폭등하는 거 아닙니까? 이번 겨울 난방비 낼 돈 없는 분들은 얼어 죽으라는 소리입니까? 배출권 거래제는 결국 \'오염 면죄부\'에 불과합니다!"' },
+      { title: '공격 포인트 2: 이익 중심 투자의 비인간성', logic: '친환경 기업에만 투자하느라, 정작 수해·폭염으로 집과 일자리를 잃은 기후 난민을 구조하는 데는 돈을 쓰지 않는다.', quote: '"돈 되는 친환경 기업에만 투자하면서, 정작 집 잃은 사람들은 누가 돕습니까?"' }
+    ],
+    rebutSide: '💰 경제팀이 ➡️ 🤝 윤리팀을 공격할 때', rebutIntro: '창: "밑 빠진 독에 물 붓기로는 세상을 바꿀 수 없다!"',
+    rebuts: [
+      { title: '공격 포인트 1: 원인 해결 없는 예산 낭비', logic: '100조 원을 당장 지원금으로 다 나눠주면, 내년에 또 다가올 역대급 폭우·폭염은 무슨 돈으로 막을 것인가.', quote: '"피해자들 불쌍하다고 100조 원 다 나눠주면, 내년에 또 홍수 나면 그땐 무슨 돈으로 돕습니까? 화석 연료 시스템 자체를 바꿔야 장기적으로 더 많은 사람을 살립니다!"' },
+      { title: '공격 포인트 2: 강력한 규제의 부작용', logic: '육류 소비를 금지하고 공장을 강제로 멈추면, 수많은 노동자가 일자리를 잃고 경제가 붕괴해 서민들이 더 굶주리게 된다.', quote: '"공장 다 멈추면 그 공장에서 일하던 사람들은 당장 일자리를 잃습니다. 그건 누가 책임집니까?"' }
+    ]
   }
 };
 
@@ -217,10 +286,24 @@ function showNode(id) {
   const data = NODE_DATA[id];
   panel.innerHTML =
     '<h2>' + data.emoji + ' ' + data.title + '</h2>' +
+    '<div class="philosophy">' + data.philosophy + '</div>' +
     '<div class="desc">' + data.desc + '</div>' +
-    '<div class="solutions"><b>💡 해결책 예시</b><br>' + data.solutions + '</div>';
+    '<div class="solutions-label">💡 문제 해결 예시</div>' +
+    '<div class="solution-grid">' +
+      data.solutions.map(s => '<div class="solution-card"><div class="sc-title">' + s.title + '</div><div class="sc-desc">' + s.desc + '</div></div>').join('') +
+    '</div>';
   document.getElementById('node-' + id).classList.add('lit');
   markDone('node-' + id);
+}
+
+function renderAttackPoints(points) {
+  return points.map(p =>
+    '<div class="attack-point">' +
+      '<div class="ap-title">' + p.title + '</div>' +
+      '<div class="ap-logic">' + p.logic + '</div>' +
+      '<div class="ap-quote">' + p.quote + '</div>' +
+    '</div>'
+  ).join('');
 }
 
 function showConflict(key, edgeId) {
@@ -228,8 +311,16 @@ function showConflict(key, edgeId) {
   panel.innerHTML =
     '<h2>' + data.title + '</h2>' +
     '<div class="conflict-row">' +
-      '<div class="conflict-box attack"><div class="side">' + data.attackSide + '</div>' + data.attack + '</div>' +
-      '<div class="conflict-box rebut"><div class="side">' + data.rebutSide + '</div>' + data.rebut + '</div>' +
+      '<div class="conflict-box attack">' +
+        '<div class="side">' + data.attackSide + '</div>' +
+        '<div class="philosophy" style="margin:0 0 10px;">' + data.attackIntro + '</div>' +
+        renderAttackPoints(data.attacks) +
+      '</div>' +
+      '<div class="conflict-box rebut">' +
+        '<div class="side">' + data.rebutSide + '</div>' +
+        '<div class="philosophy" style="margin:0 0 10px;">' + data.rebutIntro + '</div>' +
+        renderAttackPoints(data.rebuts) +
+      '</div>' +
     '</div>';
   document.getElementById(edgeId).classList.add('done');
   document.getElementById('vs-' + key).classList.add('done');
