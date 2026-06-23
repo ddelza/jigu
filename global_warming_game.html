@@ -38,6 +38,9 @@
   #mission .big { font-size: 26px; font-weight: bold; color: var(--cyan); text-shadow: 0 0 10px var(--cyan); }
   #score-display { font-size: 13px; color: var(--yellow); margin-top: 4px; }
   #progress-display { font-size: 12px; color: #9fb3ff; margin-top: 2px; }
+  #opacity-control { font-size: 12px; color: #9fb3ff; margin-top: 6px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  #opacity-control input[type="range"] { width: 90px; cursor: pointer; accent-color: var(--cyan); }
+  .edge-line { opacity: var(--arrow-opacity, 1); }
 
   #layout { flex: 1; display: flex; overflow: hidden; }
 
@@ -156,6 +159,9 @@
       <div class="big"><span id="chain-count">1</span>단계</div>
       <div id="score-display">SCORE: <b id="score-val">0</b></div>
       <div id="progress-display">연결 <b id="edge-count">0</b>/<span id="edge-total">71</span> · 단계 <b id="chain-progress">1</b>/<span id="chain-total">13</span></div>
+      <div id="opacity-control">
+        🏹 화살표 투명도 <input type="range" id="arrow-opacity" min="5" max="100" value="100">
+      </div>
       <button id="reset-btn">초기화</button>
     </div>
   </header>
@@ -363,6 +369,10 @@ const TOTAL_EDGES = 71;
 const MAX_CHAIN = 13;
 const MAX_SCORE = 2510;
 let maxScoreCelebrated = false;
+
+document.getElementById('arrow-opacity').addEventListener('input', (e) => {
+  document.documentElement.style.setProperty('--arrow-opacity', e.target.value / 100);
+});
 
 function updateProgressDisplay() {
   document.getElementById('edge-count').textContent = edgesMade.length;
