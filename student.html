@@ -25,7 +25,8 @@
     .blank-qa { background: #f6f8fa; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
     .blank-q { font-size: 13px; color: #555; line-height: 1.5; margin-bottom: 4px; }
     .blank-a { font-size: 14px; font-weight: bold; color: #1a4fbf; }
-    .score-total { font-size: 28px; font-weight: bold; color: #2d6cdf; text-align: center; margin-bottom: 4px; }
+    .score-total-row { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+    .score-total { font-size: 28px; font-weight: bold; color: #2d6cdf; margin-bottom: 4px; }
     .score-total span { font-size: 16px; color: #888; font-weight: normal; }
     .score-list { margin-top: 14px; }
     .score-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
@@ -39,12 +40,13 @@
     .hint-text { font-size: 12px; font-weight: normal; color: #888; }
     .pending { background: #fff7e0; color: #9a7600; }
     .explain-box { background: #f5f8ff; border: 1px solid #dbe6ff; border-radius: 8px; padding: 10px 12px; font-size: 12.5px; color: #555; line-height: 1.6; margin-bottom: 10px; }
-    .task-link-bar { text-align: center; margin: -6px 0 16px; }
     .task-link-bar a {
-      display: inline-block; font-size: 13.5px; font-weight: bold; color: #2d6cdf;
-      background: #eaf1ff; border: 1px solid #cfe0ff; border-radius: 999px; padding: 8px 18px; text-decoration: none;
+      display: inline-block; font-size: 13px; font-weight: bold; color: #b00000;
+      background: #ffe9e9; border: 1px solid #ffc4c4; border-radius: 999px; padding: 7px 16px; text-decoration: none;
+      animation: pulseLink 1.6s ease-in-out infinite;
     }
-    .task-link-bar a:hover { background: #dbe8ff; }
+    .task-link-bar a:hover { background: #ffd6d6; }
+    @keyframes pulseLink { 0%, 100% { box-shadow: 0 0 0 rgba(255,0,0,0); } 50% { box-shadow: 0 0 10px rgba(255,80,80,.5); } }
     .value-desc-box, .perspective-desc-box {
       background: #f5f8ff; border: 1px solid #dbe6ff; border-radius: 8px; padding: 10px 12px;
       font-size: 13px; color: #444; line-height: 1.6; margin-top: 6px;
@@ -56,10 +58,6 @@
 </head>
 <body>
   <h1>📋 내 제출 내용 확인</h1>
-
-  <div class="task-link-bar">
-    <a href="https://ddelza.github.io/jigu/tasks.html" target="_blank">아직 제출하지 않은 것이 있나요? →</a>
-  </div>
 
   <!-- STEP 0: 학번/이름 입력 -->
   <div id="step0" class="card">
@@ -77,7 +75,12 @@
   <!-- STEP 0.5: 점수 요약 -->
   <div id="scoreCard" class="card hidden">
     <div class="result-title">🏆 내 점수</div>
-    <div class="score-total" id="scoreTotal"></div>
+    <div class="score-total-row">
+      <div class="score-total" id="scoreTotal"></div>
+      <div class="task-link-bar">
+        <a href="https://ddelza.github.io/jigu/tasks.html" target="_blank">아직 제출하지 않은 것이 있나요? →</a>
+      </div>
+    </div>
     <div class="score-list" id="scoreList"></div>
   </div>
 
