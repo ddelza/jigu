@@ -79,6 +79,11 @@
   }
   .card.placed:active { cursor: grabbing; }
   .card.placed.shake { animation: shake .35s; }
+  .card.placed.selected { box-shadow: 0 0 0 2px var(--cyan), 0 4px 14px rgba(0,0,0,.5); }
+  #select-box {
+    position: absolute; border: 1.5px dashed var(--cyan); background: rgba(56,232,224,.08);
+    z-index: 5; pointer-events: none; display: none;
+  }
   @keyframes shake {
     0%,100% { transform: translateX(0); }
     20% { transform: translateX(-6px); }
@@ -170,6 +175,7 @@
     <aside id="palette"></aside>
     <div id="canvas-wrap">
       <div id="canvas">
+        <div id="select-box"></div>
         <svg id="lines">
           <defs>
             <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -543,15 +549,67 @@ function placeNode(node, x, y) {
 
   card.addEventListener('pointerdown', e => {
     if (e.target === handle) return;
+    if (e.ctrlKey || e.shiftKey || e.metaKey) { e.preventDefault(); e.stopPropagation(); toggleSelect(node.id); return; }
     startCardDrag(e, node.id, card);
   });
   handle.addEventListener('pointerdown', e => startConnectionDrag(e, node.id));
   card.addEventListener('click', e => {
     if (e.target === handle || card.dataset.dragged === '1') return;
+    if (selectedIds.size > 1) return;
     copyNodeLabel(node, e.clientX, e.clientY);
   });
   attachNodeTooltip(card, node);
 }
+
+// ===================== 다중 선택 =====================
+const selectedIds = new Set();
+
+function toggleSelect(id) {
+  const el = placed[id].el;
+  if (selectedIds.has(id)) { selectedIds.delete(id); el.classList.remove('selected'); }
+  else { selectedIds.add(id); el.classList.add('selected'); }
+}
+function clearSelection() {
+  selectedIds.forEach(id => { if (placed[id]) placed[id].el.classList.remove('selected'); });
+  selectedIds.clear();
+}
+function selectIds(ids) {
+  clearSelection();
+  ids.forEach(id => { selectedIds.add(id); placed[id].el.classList.add('selected'); });
+}
+
+const selectBoxEl = document.getElementById('select-box');
+canvasEl.addEventListener('pointerdown', e => {
+  if (e.target !== canvasEl) return;
+  if (!(e.ctrlKey || e.shiftKey || e.metaKey)) clearSelection();
+  const canvasRect = canvasEl.getBoundingClientRect();
+  const startX = e.clientX - canvasRect.left, startY = e.clientY - canvasRect.top;
+  selectBoxEl.style.display = 'block';
+  selectBoxEl.style.left = startX + 'px'; selectBoxEl.style.top = startY + 'px';
+  selectBoxEl.style.width = '0px'; selectBoxEl.style.height = '0px';
+
+  function move(ev) {
+    const curX = ev.clientX - canvasRect.left, curY = ev.clientY - canvasRect.top;
+    const x = Math.min(startX, curX), y = Math.min(startY, curY);
+    const w = Math.abs(curX - startX), h = Math.abs(curY - startY);
+    selectBoxEl.style.left = x + 'px'; selectBoxEl.style.top = y + 'px';
+    selectBoxEl.style.width = w + 'px'; selectBoxEl.style.height = h + 'px';
+
+    Object.keys(placed).forEach(id => {
+      const p = placed[id];
+      const cw = p.el.offsetWidth, ch = p.el.offsetHeight;
+      const overlaps = p.x < x + w && p.x + cw > x && p.y < y + h && p.y + ch > y;
+      if (overlaps) { if (!selectedIds.has(id)) { selectedIds.add(id); p.el.classList.add('selected'); } }
+    });
+  }
+  function up() {
+    selectBoxEl.style.display = 'none';
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+  }
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+});
 
 // ===================== 클립보드 복사 =====================
 function copyNodeLabel(node, x, y) {
@@ -567,17 +625,23 @@ function startCardDrag(e, id, card) {
   e.preventDefault();
   e.stopPropagation();
   const startX = e.clientX, startY = e.clientY;
-  const origX = placed[id].x, origY = placed[id].y;
   card.dataset.dragged = '0';
+
+  const groupIds = selectedIds.has(id) && selectedIds.size > 1 ? Array.from(selectedIds) : [id];
+  const origPos = {};
+  groupIds.forEach(gid => { origPos[gid] = { x: placed[gid].x, y: placed[gid].y }; });
 
   function move(ev) {
     const dx = ev.clientX - startX, dy = ev.clientY - startY;
     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) card.dataset.dragged = '1';
-    placed[id].x = Math.max(0, origX + dx);
-    placed[id].y = Math.max(0, origY + dy);
-    card.style.left = placed[id].x + 'px';
-    card.style.top = placed[id].y + 'px';
-    refreshLinesFor(id);
+    groupIds.forEach(gid => {
+      const p = placed[gid];
+      p.x = Math.max(0, origPos[gid].x + dx);
+      p.y = Math.max(0, origPos[gid].y + dy);
+      p.el.style.left = p.x + 'px';
+      p.el.style.top = p.y + 'px';
+      refreshLinesFor(gid);
+    });
   }
   function up() {
     document.removeEventListener('pointermove', move);
