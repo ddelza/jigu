@@ -77,6 +77,10 @@
     <label>질문 2-3. 내가 중요하게 생각하는 가치로부터, 왜 위의 관점을 선택했는지 구체적으로 설명하세요.</label>
     <textarea id="reason" placeholder="나의 가치관과 선택한 관점을 연결지어 구체적으로 작성해보세요."></textarea>
 
+    <div id="save-msg"></div>
+    <button onclick="saveDraft()" id="save-btn" style="background:#fff;color:#2d6cdf;border:1px solid #2d6cdf;">💾 임시저장 (이어서 쓰기)</button>
+    <div class="arrow-hint">시간이 부족하면 임시저장을 누르고 나가도 됩니다. 다음에 학번/이름으로 다시 들어오면 저장된 내용을 그대로 이어서 작성할 수 있어요.</div>
+
     <div id="submit-msg"></div>
     <button onclick="submitAll()" id="submit-btn">제출하기</button>
   </div>
@@ -160,6 +164,44 @@ function goToForm() {
       msg.innerHTML = '';
       document.getElementById('step0').classList.add('hidden');
       document.getElementById('step1').classList.remove('hidden');
+      if (res.draft) fillDraft(res.draft);
+    }
+  }).catch(function (err) {
+    btn.disabled = false;
+    msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+  });
+}
+
+function fillDraft(draft) {
+  document.getElementById('causalChain').value = draft.causalChain || '';
+  document.getElementById('myValue').value = draft.value || '';
+  document.getElementById('perspective').value = draft.perspective || '';
+  document.getElementById('reason').value = draft.reason || '';
+  updateValueDesc();
+  document.getElementById('save-msg').innerHTML = '<div class="msg success">📂 이전에 저장해둔 내용을 불러왔습니다. 이어서 작성해주세요.</div>';
+}
+
+function saveDraft() {
+  var msg = document.getElementById('save-msg');
+  var btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  msg.innerHTML = '<div class="msg success">저장 중...</div>';
+
+  var payload = {
+    studentId: document.getElementById('studentId').value.trim(),
+    studentName: document.getElementById('studentName').value.trim(),
+    causalChain: document.getElementById('causalChain').value.trim(),
+    value: document.getElementById('myValue').value.trim(),
+    perspective: document.getElementById('perspective').value,
+    reason: document.getElementById('reason').value.trim()
+  };
+
+  apiPost({ action: 'saveDraft', payload: payload }).then(function (res) {
+    btn.disabled = false;
+    if (res.success) {
+      msg.innerHTML = '<div class="msg success">💾 임시저장 완료! 나중에 학번/이름으로 다시 들어오면 이어서 쓸 수 있어요.</div>';
+    } else {
+      msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
     }
   }).catch(function (err) {
     btn.disabled = false;
