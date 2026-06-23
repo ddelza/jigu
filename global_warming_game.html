@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>기후 재난 인과관계 배치 게임 — Climate Causality Map</title>
+<style>
+  :root {
+    --bg: #060818;
+    --panel: #0d1230;
+    --panel-light: #131a3d;
+    --line: #1f2a5c;
+    --cyan: #38e8e0;
+    --yellow: #facc15;
+    --blue: #38bdf8;
+    --red: #f87171;
+    --purple: #a78bfa;
+    --green: #34d399;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: #e6f1ff; font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; overflow: hidden; }
+
+  #app { display: flex; flex-direction: column; height: 100vh; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px; background: linear-gradient(90deg, #0a0e26, #131a3d);
+    border-bottom: 1px solid var(--cyan); box-shadow: 0 0 20px rgba(56,232,224,.2);
+    z-index: 5;
+  }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: 1px; color: var(--cyan); text-shadow: 0 0 8px rgba(56,232,224,.6); }
+  header h1 span { color: #fff; font-weight: normal; font-size: 13px; display: block; margin-top: 2px; }
+
+  #mission {
+    text-align: right; font-size: 13px; color: #9fb3ff;
+    background: rgba(56,232,224,.08); border: 1px solid var(--cyan); border-radius: 10px;
+    padding: 8px 16px;
+  }
+  #mission .big { font-size: 26px; font-weight: bold; color: var(--cyan); text-shadow: 0 0 10px var(--cyan); }
+  #score-display { font-size: 13px; color: var(--yellow); margin-top: 4px; }
+
+  #layout { flex: 1; display: flex; overflow: hidden; }
+
+  /* ===== Palette ===== */
+  #palette {
+    width: 260px; flex-shrink: 0; overflow-y: auto; padding: 14px 10px;
+    background: var(--panel); border-right: 1px solid var(--line);
+  }
+  .stage-group { margin-bottom: 18px; }
+  .stage-title { font-size: 12px; font-weight: bold; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px dashed var(--line); opacity: .9; }
+  .card {
+    user-select: none; padding: 9px 10px; margin-bottom: 7px; border-radius: 8px;
+    font-size: 12.5px; line-height: 1.35; cursor: grab; border: 1px solid transparent;
+    transition: transform .12s, box-shadow .12s; position: relative;
+  }
+  .card.n { background: rgba(250,204,21,.12); border-color: var(--yellow); color: #fff7d6; }
+  .card.s { background: rgba(56,189,248,.12); border-color: var(--blue); color: #dff3ff; }
+  .card.d { background: rgba(248,113,113,.12); border-color: var(--red); color: #ffe4e4; }
+  .card.i { background: rgba(167,139,250,.12); border-color: var(--purple); color: #ece4ff; }
+  .card:hover { transform: translateY(-1px); box-shadow: 0 0 10px currentColor; }
+  .card.used { opacity: .25; cursor: not-allowed; pointer-events: none; }
+
+  /* ===== Canvas ===== */
+  #canvas-wrap { flex: 1; position: relative; overflow: auto; background:
+      radial-gradient(circle at 20% 20%, rgba(56,232,224,.05), transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(167,139,250,.06), transparent 40%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 28px);
+  }
+  #canvas { position: relative; width: 1900px; height: 1300px; }
+  svg#lines { position: absolute; top: 0; left: 0; width: 1900px; height: 1300px; pointer-events: none; overflow: visible; }
+
+  .card.placed {
+    position: absolute; width: 168px; padding: 10px 28px 10px 10px;
+    cursor: grab; z-index: 2; box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  }
+  .card.placed:active { cursor: grabbing; }
+  .card.placed.shake { animation: shake .35s; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  .handle {
+    position: absolute; right: -9px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; border-radius: 50%; background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan); cursor: crosshair; z-index: 3;
+    border: 2px solid #0a0e26;
+  }
+  .handle:hover { transform: translateY(-50%) scale(1.25); }
+
+  /* ===== Misc ===== */
+  #drag-ghost {
+    position: fixed; pointer-events: none; z-index: 999; opacity: .85;
+    transform: translate(-50%, -50%); width: 168px;
+  }
+
+  #toast {
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,14,38,.95); border: 1px solid var(--cyan); border-radius: 10px;
+    padding: 10px 22px; font-size: 14px; z-index: 50; opacity: 0; transition: opacity .25s, top .25s;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; top: 90px; }
+  #toast.bad { border-color: var(--red); color: #ffd6d6; }
+  #toast.good { border-color: var(--green); color: #d6ffe9; }
+
+  #celebrate-banner {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%) scale(.7);
+    background: linear-gradient(135deg, rgba(56,232,224,.18), rgba(167,139,250,.18));
+    border: 2px solid var(--cyan); border-radius: 16px; padding: 26px 40px;
+    text-align: center; z-index: 100; opacity: 0; pointer-events: none;
+    transition: opacity .3s, transform .3s; box-shadow: 0 0 40px rgba(56,232,224,.5);
+  }
+  #celebrate-banner.show { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  #celebrate-banner h2 { margin: 0 0 6px; font-size: 26px; color: var(--cyan); text-shadow: 0 0 12px var(--cyan); }
+  #celebrate-banner p { margin: 0; font-size: 14px; color: #fff; }
+
+  .confetti {
+    position: fixed; top: -20px; width: 9px; height: 9px; z-index: 90; pointer-events: none;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    to { transform: translateY(110vh) rotate(540deg); opacity: 0; }
+  }
+
+  #reset-btn {
+    background: rgba(248,113,113,.15); border: 1px solid var(--red); color: #ffdada;
+    border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; margin-left: 10px;
+  }
+  #reset-btn:hover { background: rgba(248,113,113,.3); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <h1>🌐 기후 재난 인과관계 배치 게임 <span>Climate Causality Map — 카드를 캔버스에 배치하고 인과관계를 연결하세요</span></h1>
+    </div>
+    <div id="mission">
+      🎯 가장 긴 인과 사슬 찾기 미션!
+      <div class="big"><span id="chain-count">1</span>단계</div>
+      <div id="score-display">SCORE: <b id="score-val">0</b></div>
+      <button id="reset-btn">초기화</button>
+    </div>
+  </header>
+
+  <div id="layout">
+    <aside id="palette"></aside>
+    <div id="canvas-wrap">
+      <div id="canvas">
+        <svg id="lines">
+          <defs>
+            <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#34d399"></path>
+            </marker>
+            <marker id="arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#f87171"></path>
+            </marker>
+            <marker id="arrow-temp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#38e8e0"></path>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="celebrate-banner"><h2 id="cb-title"></h2><p id="cb-sub"></p></div>
+
+<script>
+// ===================== 데이터 =====================
+const NODES = [
+  { id:'N1', stage:'n', label:'화석 연료 사용' },
+  { id:'N2', stage:'n', label:'온실기체(이산화탄소) 배출량 급증' },
+
+  { id:'S1', stage:'s', label:'지구 온난화 (온실효과 강화)' },
+  { id:'S2', stage:'s', label:'포화 수증기량 폭발 (대기 수분 증가)' },
+  { id:'S3', stage:'s', label:'단열 팽창의 파괴력 증가' },
+  { id:'S4', stage:'s', label:'북극 기온 급상승' },
+  { id:'S5', stage:'s', label:'북극·중위도 기압(기온) 차이 감소' },
+  { id:'S6', stage:'s', label:'제트 기류 약화 (대기 순환 붕괴)' },
+  { id:'S7', stage:'s', label:'북태평양 기단 세력 비정상 팽창' },
+  { id:'S8', stage:'s', label:'정체전선(장마전선) 장기 체류' },
+
+  { id:'D1', stage:'d', label:'해수면 상승' },
+  { id:'D2', stage:'d', label:'역대급 폭우(물폭탄)' },
+  { id:'D3', stage:'d', label:'극심한 가뭄' },
+  { id:'D4', stage:'d', label:'한겨울 이상 한파' },
+  { id:'D5', stage:'d', label:'두 달간의 장기 폭염' },
+  { id:'D6', stage:'d', label:'사계절 경계 붕괴' },
+  { id:'D7', stage:'d', label:'대형 산불' },
+
+  { id:'I1', stage:'i', label:'농경지 침수 및 소금기 유입' },
+  { id:'I2', stage:'i', label:'전 세계적 식량 부족 및 물가 폭등' },
+  { id:'I3', stage:'i', label:'주거지 침수 및 이재민 발생' },
+  { id:'I4', stage:'i', label:'난방/냉방 에너지 수요 폭증' },
+  { id:'I5', stage:'i', label:'대규모 정전(블랙아웃) 사태' },
+  { id:'I6', stage:'i', label:'온열질환·동사 등 생명 위협' },
+  { id:'I7', stage:'i', label:'야외 노동자 피해·생산성 저하' },
+  { id:'I8', stage:'i', label:'서식지 파괴 및 멸종 위기' },
+];
+
+const STAGE_LABEL = { n:'1단계: 근본 원인', s:'2단계: 과학적 이상 현상', d:'3단계: 기상 재난', i:'4단계: 삶과 사회의 위협' };
+
+const EDGES = {
+  N1: ['N2'],
+  N2: ['S1'],
+  S1: ['S2','S4','S7','D1','D7'],
+  S2: ['S3','D2','D3'],
+  S3: ['D2'],
+  S4: ['S5'],
+  S5: ['S6'],
+  S6: ['D4','D5'],
+  S7: ['S8','D5','D6'],
+  S8: ['D2'],
+  D1: ['I1','I3'],
+  D2: ['I1','I3'],
+  D3: ['I1','I8'],
+  D4: ['I4','I6'],
+  D5: ['I4','I6','I7','D7'],
+  D7: ['I8'],
+  I1: ['I2'],
+  I4: ['I5'],
+  I5: ['I6'],
+};
+
+// ===================== 상태 =====================
+const placed = {};      // id -> { x, y, el }
+const edgesMade = [];    // { from, to, pathEl }
+let score = 0;
+let maxChainNodes = 1;
+const celebratedTiers = new Set();
+
+const paletteEl = document.getElementById('palette');
+const canvasEl = document.getElementById('canvas');
+const svgEl = document.getElementById('lines');
+const toastEl = document.getElementById('toast');
+const cbEl = document.getElementById('celebrate-banner');
+
+// ===================== 팔레트 렌더 =====================
+function renderPalette() {
+  const groups = { n: [], s: [], d: [], i: [] };
+  NODES.forEach(n => groups[n.stage].push(n));
+
+  Object.keys(groups).forEach(stage => {
+    const wrap = document.createElement('div');
+    wrap.className = 'stage-group';
+    const title = document.createElement('div');
+    title.className = 'stage-title';
+    title.textContent = STAGE_LABEL[stage];
+    wrap.appendChild(title);
+
+    groups[stage].forEach(node => {
+      const card = document.createElement('div');
+      card.className = 'card ' + stage;
+      card.dataset.id = node.id;
+      card.textContent = node.label;
+      card.id = 'palette-' + node.id;
+      card.addEventListener('pointerdown', e => startPaletteDrag(e, node));
+      wrap.appendChild(card);
+    });
+    paletteEl.appendChild(wrap);
+  });
+}
+
+// ===================== 팔레트 -> 캔버스 드래그 =====================
+let ghostEl = null;
+function startPaletteDrag(e, node) {
+  if (placed[node.id]) return;
+  e.preventDefault();
+
+  ghostEl = document.createElement('div');
+  ghostEl.id = 'drag-ghost';
+  ghostEl.className = 'card ' + node.stage;
+  ghostEl.textContent = node.label;
+  ghostEl.style.left = e.clientX + 'px';
+  ghostEl.style.top = e.clientY + 'px';
+  document.body.appendChild(ghostEl);
+
+  function move(ev) {
+    ghostEl.style.left = ev.clientX + 'px';
+    ghostEl.style.top = ev.clientY + 'px';
+  }
+  function up(ev) {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    ghostEl.remove();
+    ghostEl = null;
+
+    const wrapRect = document.getElementById('canvas-wrap').getBoundingClientRect();
+    if (ev.clientX > wrapRect.left && ev.clientX < wrapRect.right && ev.clientY > wrapRect.top && ev.clientY < wrapRect.bottom) {
+      const canvasRect = canvasEl.getBoundingClientRect();
+      const x = ev.clientX - canvasRect.left - 84;
+      const y = ev.clientY - canvasRect.top - 24;
+      placeNode(node, Math.max(0, x), Math.max(0, y));
+    }
+  }
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+
+// ===================== 카드 배치 =====================
+function placeNode(node, x, y) {
+  if (placed[node.id]) return;
+
+  const card = document.createElement('div');
+  card.className = 'card placed ' + node.stage;
+  card.dataset.id = node.id;
+  card.textContent = node.label;
+  card.style.left = x + 'px';
+  card.style.top = y + 'px';
+
+  const handle = document.createElement('div');
+  handle.className = 'handle';
+  handle.title = '드래그해서 다른 카드와 연결';
+  card.appendChild(handle);
+
+  canvasEl.appendChild(card);
+  placed[node.id] = { x, y, el: card };
+
+  const paletteCard = document.getElementById('palette-' + node.id);
+  if (paletteCard) paletteCard.classList.add('used');
+
+  card.addEventListener('pointerdown', e => {
+    if (e.target === handle) return;
+    startCardDrag(e, node.id, card);
+  });
+  handle.addEventListener('pointerdown', e => startConnectionDrag(e, node.id));
+}
+
+// ===================== 배치된 카드 재배치 =====================
+function startCardDrag(e, id, card) {
+  e.preventDefault();
+  e.stopPropagation();
+  const startX = e.clientX, startY = e.clientY;
+  const origX = placed[id].x, origY = placed[id].y;
+
+  function move(ev) {
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    placed[id].x = Math.max(0, origX + dx);
+    placed[id].y = Math.max(0, origY + dy);
+    card.style.left = placed[id].x + 'px';
+    card.style.top = placed[id].y + 'px';
+    refreshLinesFor(id);
+  }
+  function up() {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+  }
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+
+// ===================== 연결선 드래그 =====================
+let tempLine = null;
+function startConnectionDrag(e, fromId) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  tempLine.setAttribute('stroke', '#38e8e0');
+  tempLine.setAttribute('stroke-width', '3');
+  tempLine.setAttribute('stroke-dasharray', '6 5');
+  tempLine.setAttribute('marker-end', 'url(#arrow-temp)');
+  svgEl.appendChild(tempLine);
+
+  const fromCenter = getEdgePoint(fromId);
+
+  function move(ev) {
+    const canvasRect = canvasEl.getBoundingClientRect();
+    tempLine.setAttribute('x1', fromCenter.x);
+    tempLine.setAttribute('y1', fromCenter.y);
+    tempLine.setAttribute('x2', ev.clientX - canvasRect.left);
+    tempLine.setAttribute('y2', ev.clientY - canvasRect.top);
+  }
+  function up(ev) {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    if (tempLine) { tempLine.remove(); tempLine = null; }
+
+    const target = document.elementFromPoint(ev.clientX, ev.clientY);
+    const targetCard = target ? target.closest('.card.placed') : null;
+    if (targetCard) {
+      const toId = targetCard.dataset.id;
+      if (toId !== fromId) attemptConnect(fromId, toId, targetCard);
+    }
+  }
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+
+// ===================== 좌표 계산 =====================
+function getEdgePoint(id, side) {
+  const p = placed[id];
+  const rect = p.el.getBoundingClientRect();
+  const canvasRect = canvasEl.getBoundingClientRect();
+  const top = rect.top - canvasRect.top;
+  const left = rect.left - canvasRect.left;
+  if (side === 'left') {
+    return { x: left, y: top + rect.height / 2 };
+  }
+  return { x: left + rect.width, y: top + rect.height / 2 }; // right (handle side / default)
+}
+
+// ===================== 연결 검증 =====================
+function attemptConnect(fromId, toId, targetCardEl) {
+  const already = edgesMade.some(ed => ed.from === fromId && ed.to === toId);
+  if (already) { showToast('이미 연결된 인과관계예요.', 'bad'); return; }
+
+  const valid = (EDGES[fromId] || []).includes(toId);
+
+  if (valid) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    path.setAttribute('class', 'edge-line good');
+    path.setAttribute('stroke', '#34d399');
+    path.setAttribute('stroke-width', '4');
+    path.setAttribute('stroke-dasharray', '10 8');
+    path.setAttribute('marker-end', 'url(#arrow-green)');
+    path.style.filter = 'drop-shadow(0 0 6px #34d399)';
+    path.style.animation = 'dashflow 1s linear infinite';
+    svgEl.appendChild(path);
+
+    edgesMade.push({ from: fromId, to: toId, el: path });
+    updateLinePosition(path, fromId, toId);
+
+    score += 10;
+    document.getElementById('score-val').textContent = score;
+    showToast('⚡ 올바른 인과관계입니다! +10점', 'good');
+    recomputeLongestChain();
+  } else {
+    const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    tmp.setAttribute('stroke', '#f87171');
+    tmp.setAttribute('stroke-width', '4');
+    tmp.setAttribute('marker-end', 'url(#arrow-red)');
+    tmp.style.filter = 'drop-shadow(0 0 6px #f87171)';
+    svgEl.appendChild(tmp);
+    const a = getEdgePoint(fromId), b = getCardCenter(toId);
+    tmp.setAttribute('x1', a.x); tmp.setAttribute('y1', a.y);
+    tmp.setAttribute('x2', b.x); tmp.setAttribute('y2', b.y);
+
+    targetCardEl.classList.add('shake');
+    setTimeout(() => targetCardEl.classList.remove('shake'), 400);
+    setTimeout(() => tmp.remove(), 650);
+
+    showToast('❌ 이건 인과관계가 아니에요. 다시 생각해보세요!', 'bad');
+  }
+}
+
+function getCardCenter(id) {
+  const p = placed[id];
+  const rect = p.el.getBoundingClientRect();
+  const canvasRect = canvasEl.getBoundingClientRect();
+  return {
+    x: rect.left - canvasRect.left + rect.width / 2,
+    y: rect.top - canvasRect.top + rect.height / 2
+  };
+}
+
+function updateLinePosition(line, fromId, toId) {
+  const a = getEdgePoint(fromId, 'right');
+  const b = getEdgePoint(toId, 'left');
+  line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
+  line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
+}
+
+function refreshLinesFor(id) {
+  edgesMade.forEach(ed => {
+    if (ed.from === id || ed.to === id) updateLinePosition(ed.el, ed.from, ed.to);
+  });
+}
+
+// ===================== 최장 사슬 계산 =====================
+function recomputeLongestChain() {
+  const adj = {};
+  edgesMade.forEach(ed => {
+    if (!adj[ed.from]) adj[ed.from] = [];
+    adj[ed.from].push(ed.to);
+  });
+
+  const memo = {};
+  function longestFrom(id, visiting) {
+    if (memo[id] !== undefined) return memo[id];
+    if (visiting.has(id)) return 1; // 순환 방지 안전장치
+    visiting.add(id);
+    let best = 1;
+    (adj[id] || []).forEach(next => {
+      best = Math.max(best, 1 + longestFrom(next, visiting));
+    });
+    visiting.delete(id);
+    memo[id] = best;
+    return best;
+  }
+
+  let overall = 1;
+  Object.keys(placed).forEach(id => {
+    overall = Math.max(overall, longestFrom(id, new Set()));
+  });
+
+  document.getElementById('chain-count').textContent = overall;
+
+  if (overall > maxChainNodes) {
+    maxChainNodes = overall;
+    score += 20 * overall;
+    document.getElementById('score-val').textContent = score;
+
+    if (overall >= 4 && !celebratedTiers.has(overall)) {
+      celebratedTiers.add(overall);
+      celebrate(overall);
+    }
+  }
+}
+
+// ===================== 이펙트 =====================
+function showToast(msg, type) {
+  toastEl.textContent = msg;
+  toastEl.className = 'show ' + type;
+  setTimeout(() => { toastEl.className = type; }, 1400);
+}
+
+function celebrate(n) {
+  document.getElementById('cb-title').textContent = '🎉 인과 사슬 ' + n + '단계 완성!';
+  document.getElementById('cb-sub').textContent = '근본 원인부터 사회적 영향까지, 멋지게 연결했어요!';
+  cbEl.classList.add('show');
+  setTimeout(() => cbEl.classList.remove('show'), 1800);
+  spawnConfetti();
+}
+
+function spawnConfetti() {
+  const colors = ['#38e8e0', '#facc15', '#f87171', '#a78bfa', '#34d399'];
+  for (let i = 0; i < 40; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.animationDuration = (1 + Math.random() * 1) + 's';
+    c.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 2200);
+  }
+}
+
+// ===================== 초기화 버튼 =====================
+document.getElementById('reset-btn').addEventListener('click', () => {
+  if (!confirm('정말 처음부터 다시 시작할까요?')) return;
+  location.reload();
+});
+
+// ===================== 동적 keyframes (dash flow) =====================
+const styleEl = document.createElement('style');
+styleEl.textContent = `
+@keyframes dashflow { to { stroke-dashoffset: -36; } }
+`;
+document.head.appendChild(styleEl);
+
+renderPalette();
+</script>
+</body>
+</html>
