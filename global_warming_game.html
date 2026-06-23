@@ -432,7 +432,7 @@ function attachNodeTooltip(el, node) {
   el.addEventListener('pointerenter', e => {
     const conn = countNodeConnections(node.id);
     showTooltip('<div class="tt-title">' + nodeLabel(node) + '</div>' + node.desc +
-      '<div class="tt-why">🔗 연결된 인과관계: <b>' + conn.made + '</b> / ' + conn.possible + '개</div>', e.clientX, e.clientY);
+      '<div class="tt-why">🔗 연결된 인과관계: <b>' + conn.made + '</b>개</div>', e.clientX, e.clientY);
   });
   el.addEventListener('pointermove', e => positionTooltip(e.clientX, e.clientY));
   el.addEventListener('pointerleave', hideTooltip);
