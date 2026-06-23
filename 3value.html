@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>기후위기 관점 트라이앵글 — Climate Perspective Triangle</title>
+<style>
+  :root {
+    --bg: #060818;
+    --panel: #0d1230;
+    --line: #1f2a5c;
+    --cyan: #38e8e0;
+    --gold: #facc15;
+    --red: #f87171;
+    --green: #34d399;
+    --eco: #facc15;
+    --tech: #38bdf8;
+    --eth: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: #e6f1ff; font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; }
+
+  header { text-align: center; padding: 22px 16px 10px; }
+  header h1 { margin: 0; font-size: 22px; color: var(--cyan); text-shadow: 0 0 10px rgba(56,232,224,.6); letter-spacing: .5px; }
+  header p { margin: 8px 0 0; font-size: 13px; color: #9fb3ff; }
+
+  #progress-bar {
+    max-width: 480px; margin: 14px auto 0; display: flex; justify-content: center; gap: 8px;
+  }
+  .progress-dot {
+    width: 14px; height: 14px; border-radius: 50%; background: #1c2350; border: 1px solid var(--line);
+    transition: background .3s, box-shadow .3s;
+  }
+  .progress-dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+  #stage {
+    position: relative; width: 720px; height: 560px; margin: 30px auto 10px;
+  }
+  svg#edges { position: absolute; top: 0; left: 0; width: 720px; height: 560px; overflow: visible; pointer-events: none; }
+
+  .edge-line { stroke: #2a3568; stroke-width: 3; stroke-dasharray: 7 6; transition: stroke .4s, filter .4s; }
+  .edge-line.done { stroke: var(--red); filter: drop-shadow(0 0 8px var(--red)); animation: dash 1.1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -26; } }
+
+  .node {
+    position: absolute; width: 168px; height: 168px; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; cursor: pointer; user-select: none; transform: translate(-50%, -50%);
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.08), rgba(10,14,38,.9));
+    border: 2px solid var(--line); transition: border-color .3s, box-shadow .3s, transform .2s;
+    z-index: 3;
+  }
+  .node:hover { transform: translate(-50%, -50%) scale(1.05); }
+  .node .emoji { font-size: 32px; margin-bottom: 4px; }
+  .node .title { font-size: 14px; font-weight: bold; line-height: 1.3; padding: 0 10px; }
+  .node.economy { border-color: rgba(250,204,21,.4); }
+  .node.tech { border-color: rgba(56,189,248,.4); }
+  .node.ethics { border-color: rgba(167,139,250,.4); }
+  .node.economy.lit { border-color: var(--eco); box-shadow: 0 0 22px rgba(250,204,21,.7); }
+  .node.tech.lit { border-color: var(--tech); box-shadow: 0 0 22px rgba(56,189,248,.7); }
+  .node.ethics.lit { border-color: var(--eth); box-shadow: 0 0 22px rgba(167,139,250,.7); }
+
+  .vs-btn {
+    position: absolute; width: 56px; height: 56px; border-radius: 50%; transform: translate(-50%, -50%);
+    background: var(--panel); border: 2px solid var(--line); color: #fff; font-weight: bold; font-size: 14px;
+    cursor: pointer; z-index: 4; display: flex; align-items: center; justify-content: center;
+    transition: background .3s, border-color .3s, box-shadow .3s, transform .15s;
+  }
+  .vs-btn:hover { transform: translate(-50%, -50%) scale(1.12); }
+  .vs-btn.done { background: rgba(248,113,113,.25); border-color: var(--red); box-shadow: 0 0 16px rgba(248,113,113,.7); color: #ffdada; }
+
+  #info-panel {
+    max-width: 720px; margin: 10px auto 40px; background: var(--panel); border: 1px solid var(--cyan);
+    border-radius: 14px; padding: 22px 26px; box-shadow: 0 0 26px rgba(56,232,224,.15); min-height: 120px;
+  }
+  #info-panel h2 { margin: 0 0 10px; font-size: 17px; color: var(--cyan); }
+  #info-panel .placeholder { color: #8893c9; font-size: 14px; }
+  #info-panel .desc { font-size: 14px; line-height: 1.7; margin-bottom: 10px; }
+  #info-panel .solutions { font-size: 13.5px; line-height: 1.7; background: rgba(255,255,255,.04); border-radius: 10px; padding: 12px 16px; }
+  #info-panel .solutions b { color: var(--gold); }
+  .conflict-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .conflict-box { flex: 1; min-width: 240px; background: rgba(255,255,255,.04); border-radius: 10px; padding: 12px 16px; font-size: 13.5px; line-height: 1.6; }
+  .conflict-box .side { font-weight: bold; margin-bottom: 6px; }
+  .conflict-box.attack .side { color: var(--red); }
+  .conflict-box.rebut .side { color: var(--cyan); }
+
+  /* ===== Modal ===== */
+  #modal-overlay {
+    position: fixed; inset: 0; background: rgba(2,4,14,.85); display: flex; align-items: center; justify-content: center;
+    z-index: 999; opacity: 0; pointer-events: none; transition: opacity .35s; backdrop-filter: blur(3px);
+  }
+  #modal-overlay.show { opacity: 1; pointer-events: auto; }
+  #modal-box {
+    width: min(560px, 88vw); background: linear-gradient(160deg, #0d1230, #161c44); border: 2px solid var(--cyan);
+    border-radius: 18px; padding: 36px 32px; text-align: center; box-shadow: 0 0 50px rgba(56,232,224,.5);
+    transform: scale(.7); transition: transform .35s;
+  }
+  #modal-overlay.show #modal-box { transform: scale(1); }
+  #modal-box h2 { margin: 0 0 14px; font-size: 20px; color: var(--cyan); text-shadow: 0 0 10px rgba(56,232,224,.7); }
+  #modal-box p { font-size: 14.5px; line-height: 1.7; margin: 0 0 22px; color: #e6f1ff; }
+  #modal-box .budget { font-size: 26px; font-weight: bold; color: var(--gold); text-shadow: 0 0 12px rgba(250,204,21,.6); margin-bottom: 6px; }
+  #submit-link {
+    display: inline-block; background: linear-gradient(135deg, var(--cyan), #2563eb); color: #04111a; font-weight: bold;
+    padding: 14px 30px; border-radius: 10px; text-decoration: none; font-size: 15px; box-shadow: 0 0 22px rgba(56,232,224,.6);
+    transition: transform .15s;
+  }
+  #submit-link:hover { transform: scale(1.05); }
+  #modal-close {
+    display: block; margin: 16px auto 0; background: none; border: none; color: #8893c9; font-size: 12.5px;
+    cursor: pointer; text-decoration: underline;
+  }
+
+  .confetti2 { position: fixed; top: -20px; width: 9px; height: 9px; z-index: 998; pointer-events: none; animation: fall2 linear forwards; }
+  @keyframes fall2 { to { transform: translateY(110vh) rotate(540deg); opacity: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔺 기후위기 관점 트라이앵글 <span style="color:#fff;font-weight:normal;">Climate Perspective Triangle</span></h1>
+  <p>3가지 관점 노드와 3개의 갈등(VS)을 모두 클릭해서 확인해보세요.</p>
+  <div id="progress-bar">
+    <div class="progress-dot" id="dot-node-economy"></div>
+    <div class="progress-dot" id="dot-node-tech"></div>
+    <div class="progress-dot" id="dot-node-ethics"></div>
+    <div class="progress-dot" id="dot-vs-a"></div>
+    <div class="progress-dot" id="dot-vs-b"></div>
+    <div class="progress-dot" id="dot-vs-c"></div>
+  </div>
+</header>
+
+<div id="stage">
+  <svg id="edges">
+    <line id="edge-a" class="edge-line" x1="350" y1="90" x2="140" y2="470"></line>
+    <line id="edge-b" class="edge-line" x1="350" y1="90" x2="560" y2="470"></line>
+    <line id="edge-c" class="edge-line" x1="140" y1="470" x2="560" y2="470"></line>
+  </svg>
+
+  <div class="node tech" id="node-tech" style="left:350px; top:90px;">
+    <div class="emoji">🔬</div>
+    <div class="title">기술적 관점</div>
+  </div>
+  <div class="node economy" id="node-economy" style="left:140px; top:470px;">
+    <div class="emoji">💰</div>
+    <div class="title">경제적 관점</div>
+  </div>
+  <div class="node ethics" id="node-ethics" style="left:560px; top:470px;">
+    <div class="emoji">🤝</div>
+    <div class="title">윤리·사회적 관점</div>
+  </div>
+
+  <button class="vs-btn" id="vs-a" style="left:245px; top:280px;">VS</button>
+  <button class="vs-btn" id="vs-b" style="left:455px; top:280px;">VS</button>
+  <button class="vs-btn" id="vs-c" style="left:350px; top:470px;">VS</button>
+</div>
+
+<div id="info-panel">
+  <div class="placeholder">👆 위의 관점 노드나 VS 버튼을 클릭하면 여기에 설명이 나타납니다.</div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h2>🌍 모든 관점의 주장과 한계를 확인했습니다!</h2>
+    <div class="budget">100조 원</div>
+    <p>여러분은 이 예산을 어디에 투자하시겠습니까?<br>경제, 기술, 윤리 중 어떤 관점을 선택하실 건가요?<br>지금까지 살펴본 주장과 반박을 떠올려보고, 나의 입장을 정해보세요.</p>
+    <a id="submit-link" href="student_value.html">📝 나의 관점 제출하기</a>
+    <button id="modal-close">나중에 할게요</button>
+  </div>
+</div>
+
+<script>
+const NODE_DATA = {
+  economy: {
+    emoji: '💰', title: '경제적 관점',
+    desc: '세상을 움직이는 건 돈과 시장이다. 시장의 흐름을 바꿔 탄소 배출을 손해로, 친환경을 이익으로 만들어야 한다.',
+    solutions: '탄소세 도입, 탄소 배출권 거래제, 재생 에너지 막대한 보조금 지급, 농업 피해 보상 예산 투입.'
+  },
+  tech: {
+    emoji: '🔬', title: '기술적 관점',
+    desc: '인간의 한계는 과학으로 돌파한다. 이미 배출된 탄소와 올라간 온도를 물리적이고 즉각적인 기술로 제어해야 한다.',
+    solutions: '초대형 대기 탄소 포집기(CCUS) 설치, 지구 공학(우주 반사경, 성층권 에어로졸), AI 스마트 기상 방어망, 인공태양(핵융합).'
+  },
+  ethics: {
+    emoji: '🤝', title: '윤리·사회적 관점',
+    desc: '기후위기는 불평등과 인권의 문제다. 돈과 기술을 기다릴 시간이 없으며, 당장 죽어가는 취약계층의 생존부터 법으로 지켜야 한다.',
+    solutions: '야외 노동자 기후 휴업 수당 지급, 기후 난민 구호 기금, 대중교통 전면 무료화, 육류 소비 및 일회용품 강력 규제.'
+  }
+};
+
+const CONFLICT_DATA = {
+  a: {
+    title: '⚔️ 갈등 A: 경제 VS 기술',
+    attackSide: '💰 경제팀의 공격', attack: '기술은 언제 완성될지 모르는 비싼 도박이다! 완성 전에 지구가 멸망한다. 당장 탄소세로 배출을 줄이는 게 빠르다.',
+    rebutSide: '🔬 기술팀의 반박', rebut: '세금 걷는다고 지구 온도가 당장 내려가냐? 제도로 돈놀이할 시간에 당장 대기 중의 탄소를 포집하는 게 유일한 물리적 해결책이다!'
+  },
+  b: {
+    title: '⚔️ 갈등 B: 기술 VS 윤리',
+    attackSide: '🔬 기술팀의 공격', attack: '캠페인하고 생활 습관 바꿀 시간 없다! 도덕적인 호소만으로는 펄펄 끓는 지구를 식힐 수 없다.',
+    rebutSide: '🤝 윤리팀의 반박', rebut: '그 잘난 기술이 발명될 때까지 당장 폭염에 쓰러지는 쪽방촌 노약자들은 죽으라는 거냐? 기술은 부자들만 살아남게 하는 핑계다!'
+  },
+  c: {
+    title: '⚔️ 갈등 C: 윤리 VS 경제',
+    attackSide: '🤝 윤리팀의 공격', attack: '탄소세 걷어봤자 결국 전기세, 물건값 올라서 서민들만 얼어 죽는다! 시장 논리는 돈 있는 대기업에 오염 면죄부를 줄 뿐이다.',
+    rebutSide: '💰 경제팀의 반박', rebut: '피해자들에게 100조 원을 수당으로 다 나눠주면, 화석 연료 시스템 자체를 바꿀 예산이 없어서 결국 내년에 또 다 죽는다!'
+  }
+};
+
+const completed = new Set();
+const panel = document.getElementById('info-panel');
+
+function markDone(key) {
+  completed.add(key);
+  const dot = document.getElementById('dot-' + key.replace(':', '-'));
+  if (dot) dot.classList.add('on');
+  checkAllDone();
+}
+
+function showNode(id) {
+  const data = NODE_DATA[id];
+  panel.innerHTML =
+    '<h2>' + data.emoji + ' ' + data.title + '</h2>' +
+    '<div class="desc">' + data.desc + '</div>' +
+    '<div class="solutions"><b>💡 해결책 예시</b><br>' + data.solutions + '</div>';
+  document.getElementById('node-' + id).classList.add('lit');
+  markDone('node-' + id);
+}
+
+function showConflict(key, edgeId) {
+  const data = CONFLICT_DATA[key];
+  panel.innerHTML =
+    '<h2>' + data.title + '</h2>' +
+    '<div class="conflict-row">' +
+      '<div class="conflict-box attack"><div class="side">' + data.attackSide + '</div>' + data.attack + '</div>' +
+      '<div class="conflict-box rebut"><div class="side">' + data.rebutSide + '</div>' + data.rebut + '</div>' +
+    '</div>';
+  document.getElementById(edgeId).classList.add('done');
+  document.getElementById('vs-' + key).classList.add('done');
+  markDone('vs-' + key);
+}
+
+document.getElementById('node-economy').addEventListener('click', () => showNode('economy'));
+document.getElementById('node-tech').addEventListener('click', () => showNode('tech'));
+document.getElementById('node-ethics').addEventListener('click', () => showNode('ethics'));
+
+document.getElementById('vs-a').addEventListener('click', () => showConflict('a', 'edge-a'));
+document.getElementById('vs-b').addEventListener('click', () => showConflict('b', 'edge-b'));
+document.getElementById('vs-c').addEventListener('click', () => showConflict('c', 'edge-c'));
+
+function checkAllDone() {
+  const required = ['node-economy', 'node-tech', 'node-ethics', 'vs-a', 'vs-b', 'vs-c'];
+  if (required.every(k => completed.has(k))) {
+    setTimeout(openModal, 400);
+  }
+}
+
+let modalShown = false;
+function openModal() {
+  if (modalShown) return;
+  modalShown = true;
+  document.getElementById('modal-overlay').classList.add('show');
+  spawnConfetti();
+}
+
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.remove('show');
+});
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target.id === 'modal-overlay') document.getElementById('modal-overlay').classList.remove('show');
+});
+
+function spawnConfetti() {
+  const colors = ['#38e8e0', '#facc15', '#f87171', '#a78bfa', '#34d399'];
+  for (let i = 0; i < 40; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti2';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.animationDuration = (1 + Math.random()) + 's';
+    c.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 2200);
+  }
+}
+</script>
+</body>
+</html>
