@@ -379,19 +379,51 @@ function getValueSheet_() {
   return sheet;
 }
 
-// 클라이언트(student_value.html)에서 호출: 학번/이름 확인 + 이미 제출했는지 확인 + 임시저장된 내용 같이 반환
+// 제출 시트의 한 행이 4개 답안(인과사슬/가치/관점/이유)을 모두 채우고 있는지 확인
+function isValueRowComplete_(row) {
+  return String(row[3] || '').trim() !== '' &&
+    String(row[4] || '').trim() !== '' &&
+    String(row[5] || '').trim() !== '' &&
+    String(row[6] || '').trim() !== '';
+}
+
+// 학번으로 제출 시트에서 행 번호(1-based)를 찾음. 없으면 -1
+function findValueRow_(sheet, studentId) {
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) === String(studentId)) return i + 1;
+  }
+  return -1;
+}
+
+// 클라이언트(student_value.html)에서 호출: 학번/이름 확인 + 이미 (완전히) 제출했는지 확인
+// 선생님이 제출 시트에서 특정 칸만 지운 경우, 그 칸만 비운 채로 이어서 작성할 수 있도록 draft를 함께 반환
 function checkValueAlreadySubmitted(studentId, studentName) {
   if (!verifyStudent_(studentId, studentName)) {
     return { valid: false, submitted: false, message: '학번 또는 이름이 명단과 일치하지 않습니다. 다시 확인해주세요.' };
   }
 
   var sheet = getValueSheet_();
-  var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][1]) === String(studentId)) {
+  var rowNum = findValueRow_(sheet, studentId);
+
+  if (rowNum !== -1) {
+    var row = sheet.getRange(rowNum, 1, 1, 7).getValues()[0];
+    if (isValueRowComplete_(row)) {
       return { valid: true, submitted: true };
     }
+    // 일부 칸이 비어있음 -> 제출 시트의 남은 내용을 불러와 이어서 작성하게 함
+    return {
+      valid: true,
+      submitted: false,
+      draft: {
+        causalChain: row[3] || '',
+        value: row[4] || '',
+        perspective: row[5] || '',
+        reason: row[6] || ''
+      }
+    };
   }
+
   return { valid: true, submitted: false, draft: getDraft(studentId, studentName).draft };
 }
 
@@ -487,7 +519,7 @@ function submitValuePerspective(payload) {
   }
 
   var sheet = getValueSheet_();
-  sheet.appendRow([
+  var rowValues = [
     new Date(),
     payload.studentId,
     payload.studentName,
@@ -495,7 +527,15 @@ function submitValuePerspective(payload) {
     payload.value,
     payload.perspective,
     payload.reason
-  ]);
+  ];
+
+  var existingRow = findValueRow_(sheet, payload.studentId);
+  if (existingRow !== -1) {
+    // 선생님이 일부 칸을 지워서 다시 채우는 경우 -> 기존 행을 덮어씀 (새 행 추가 안 함)
+    sheet.getRange(existingRow, 1, 1, 7).setValues([rowValues]);
+  } else {
+    sheet.appendRow(rowValues);
+  }
 
   // 최종 제출이 완료되면 임시저장 행은 더 이상 필요 없으므로 삭제
   var draftSheet = getDraftSheet_();
