@@ -381,7 +381,11 @@ function renderPalette() {
       card.dataset.id = node.id;
       card.textContent = nodeLabel(node);
       card.id = 'palette-' + node.id;
-      card.addEventListener('pointerdown', e => startPaletteDrag(e, node));
+      card.addEventListener('pointerdown', e => startPaletteDrag(e, node, card));
+      card.addEventListener('click', () => {
+        if (card.dataset.dragged === '1') return;
+        copyNodeLabel(node);
+      });
       attachNodeTooltip(card, node);
       wrap.appendChild(card);
     });
@@ -391,10 +395,12 @@ function renderPalette() {
 
 // ===================== 팔레트 -> 캔버스 드래그 =====================
 let ghostEl = null;
-function startPaletteDrag(e, node) {
+function startPaletteDrag(e, node, sourceCard) {
   if (placed[node.id]) return;
   e.preventDefault();
+  if (sourceCard) sourceCard.dataset.dragged = '0';
 
+  const startX = e.clientX, startY = e.clientY;
   ghostEl = document.createElement('div');
   ghostEl.id = 'drag-ghost';
   ghostEl.className = 'card ' + node.stage;
@@ -404,6 +410,9 @@ function startPaletteDrag(e, node) {
   document.body.appendChild(ghostEl);
 
   function move(ev) {
+    if (sourceCard && (Math.abs(ev.clientX - startX) > 4 || Math.abs(ev.clientY - startY) > 4)) {
+      sourceCard.dataset.dragged = '1';
+    }
     ghostEl.style.left = ev.clientX + 'px';
     ghostEl.style.top = ev.clientY + 'px';
   }
@@ -452,7 +461,20 @@ function placeNode(node, x, y) {
     startCardDrag(e, node.id, card);
   });
   handle.addEventListener('pointerdown', e => startConnectionDrag(e, node.id));
+  card.addEventListener('click', e => {
+    if (e.target === handle || card.dataset.dragged === '1') return;
+    copyNodeLabel(node, e.clientX, e.clientY);
+  });
   attachNodeTooltip(card, node);
+}
+
+// ===================== 클립보드 복사 =====================
+function copyNodeLabel(node, x, y) {
+  const text = nodeLabel(node);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+  showToast('📋 "' + text + '" 복사 완료!', 'good');
 }
 
 // ===================== 배치된 카드 재배치 =====================
@@ -461,9 +483,11 @@ function startCardDrag(e, id, card) {
   e.stopPropagation();
   const startX = e.clientX, startY = e.clientY;
   const origX = placed[id].x, origY = placed[id].y;
+  card.dataset.dragged = '0';
 
   function move(ev) {
     const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) card.dataset.dragged = '1';
     placed[id].x = Math.max(0, origX + dx);
     placed[id].y = Math.max(0, origY + dy);
     card.style.left = placed[id].x + 'px';
