@@ -567,6 +567,46 @@ function placeNode(node, x, y) {
     copyNodeLabel(node, e.clientX, e.clientY);
   });
   attachNodeTooltip(card, node);
+
+  let hoverState = null;
+  card.addEventListener('pointerenter', () => { hoverState = startHoverHighlight(node.id); });
+  card.addEventListener('pointerleave', () => { stopHoverHighlight(hoverState); hoverState = null; });
+}
+
+// ===================== 호버 강조(커졌다 작아졌다) =====================
+function startHoverHighlight(nodeId) {
+  const connectedEdges = edgesMade.filter(ed => ed.from === nodeId || ed.to === nodeId);
+  const neighborIds = new Set([nodeId]);
+  connectedEdges.forEach(ed => { neighborIds.add(ed.from); neighborIds.add(ed.to); });
+  const cardsToPulse = Array.from(neighborIds).map(id => placed[id] && placed[id].el).filter(Boolean);
+
+  const cardOrig = cardsToPulse.map(c => ({ el: c, transform: c.style.transform, transition: c.style.transition, zIndex: c.style.zIndex }));
+  const edgeOrig = connectedEdges.map(ed => ({ ed: ed, strokeWidth: ed.el.style.strokeWidth, filter: ed.el.style.filter, transition: ed.el.style.transition }));
+
+  cardsToPulse.forEach(c => { c.style.transition = 'transform .4s ease-in-out'; c.style.zIndex = 6; });
+  connectedEdges.forEach(ed => { ed.el.style.transition = 'stroke-width .4s ease-in-out, filter .4s ease-in-out'; });
+
+  let big = false;
+  function tick() {
+    big = !big;
+    cardsToPulse.forEach(c => { c.style.transform = big ? 'scale(1.15)' : 'scale(1)'; });
+    connectedEdges.forEach(ed => {
+      ed.el.style.strokeWidth = big ? '9' : '4';
+      ed.el.style.filter = big
+        ? 'drop-shadow(0 0 16px #fff) drop-shadow(0 0 10px #38e8e0)'
+        : (ed.el.classList.contains('longest-chain') ? 'drop-shadow(0 0 10px #ff9100) drop-shadow(0 0 4px #fff)' : 'drop-shadow(0 0 6px #34d399)');
+    });
+  }
+  tick();
+  const intervalId = setInterval(tick, 420);
+  return { intervalId, cardOrig, edgeOrig };
+}
+
+function stopHoverHighlight(state) {
+  if (!state) return;
+  clearInterval(state.intervalId);
+  state.cardOrig.forEach(o => { o.el.style.transform = o.transform; o.el.style.transition = o.transition; o.el.style.zIndex = o.zIndex; });
+  state.edgeOrig.forEach(o => { o.ed.el.style.strokeWidth = o.strokeWidth; o.ed.el.style.filter = o.filter; o.ed.el.style.transition = o.transition; });
 }
 
 // ===================== 다중 선택 =====================
