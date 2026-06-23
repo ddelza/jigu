@@ -41,6 +41,11 @@
   #opacity-control { font-size: 12px; color: #9fb3ff; margin-top: 6px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
   #opacity-control input[type="range"] { width: 90px; cursor: pointer; accent-color: var(--cyan); }
   .edge-line { opacity: var(--arrow-opacity, 1); }
+  .edge-line.longest-chain { stroke-width: 5; animation: dashflow 1s linear infinite, glowPulse 1.2s ease-in-out infinite; }
+  @keyframes glowPulse {
+    0%,100% { filter: drop-shadow(0 0 6px #ff9100) drop-shadow(0 0 2px #fff); }
+    50% { filter: drop-shadow(0 0 16px #ff9100) drop-shadow(0 0 6px #fff); }
+  }
 
   #layout { flex: 1; display: flex; overflow: hidden; }
 
@@ -186,6 +191,9 @@
             </marker>
             <marker id="arrow-temp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M0,0 L10,5 L0,10 Z" fill="#38e8e0"></path>
+            </marker>
+            <marker id="arrow-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#ff9100"></path>
             </marker>
           </defs>
         </svg>
@@ -808,6 +816,20 @@ function refreshLinesFor(id) {
 }
 
 // ===================== 최장 사슬 계산 =====================
+function setEdgeHighlight(ed, on) {
+  if (on) {
+    ed.el.setAttribute('stroke', '#ff9100');
+    ed.el.setAttribute('marker-end', 'url(#arrow-orange)');
+    ed.el.style.filter = 'drop-shadow(0 0 10px #ff9100) drop-shadow(0 0 4px #fff)';
+    ed.el.classList.add('longest-chain');
+  } else {
+    ed.el.setAttribute('stroke', '#34d399');
+    ed.el.setAttribute('marker-end', 'url(#arrow-green)');
+    ed.el.style.filter = 'drop-shadow(0 0 6px #34d399)';
+    ed.el.classList.remove('longest-chain');
+  }
+}
+
 function recomputeLongestChain() {
   const adj = {};
   edgesMade.forEach(ed => {
@@ -816,22 +838,38 @@ function recomputeLongestChain() {
   });
 
   const memo = {};
+  const nextBest = {};
   function longestFrom(id, visiting) {
     if (memo[id] !== undefined) return memo[id];
     if (visiting.has(id)) return 1; // 순환 방지 안전장치
     visiting.add(id);
-    let best = 1;
+    let best = 1, bestNext = null;
     (adj[id] || []).forEach(next => {
-      best = Math.max(best, 1 + longestFrom(next, visiting));
+      const v = 1 + longestFrom(next, visiting);
+      if (v > best) { best = v; bestNext = next; }
     });
     visiting.delete(id);
     memo[id] = best;
+    nextBest[id] = bestNext;
     return best;
   }
 
-  let overall = 1;
+  let overall = 1, bestStart = null;
   Object.keys(placed).forEach(id => {
-    overall = Math.max(overall, longestFrom(id, new Set()));
+    const v = longestFrom(id, new Set());
+    if (v > overall) { overall = v; bestStart = id; }
+  });
+
+  const pathEdges = new Set();
+  if (bestStart) {
+    let cur = bestStart;
+    while (nextBest[cur]) {
+      pathEdges.add(cur + '>' + nextBest[cur]);
+      cur = nextBest[cur];
+    }
+  }
+  edgesMade.forEach(ed => {
+    setEdgeHighlight(ed, pathEdges.has(ed.from + '>' + ed.to));
   });
 
   document.getElementById('chain-count').textContent = overall;
