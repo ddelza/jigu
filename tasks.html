@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>기후위기 긴급회의 - 과제 모아보기</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Noto Sans KR', sans-serif; max-width: 760px; margin: 0 auto; padding: 24px 16px 60px; background: #f6f8fa; color: #222; }
+  h1 { font-size: 22px; text-align: center; margin-bottom: 4px; }
+  .subtitle { text-align: center; color: #666; font-size: 13px; margin-bottom: 20px; }
+
+  /* 모드 선택 화면 */
+  #modeSelect { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; }
+  #modeSelect h2 { font-size: 18px; margin-bottom: 24px; text-align: center; }
+  .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; max-width: 420px; }
+  .mode-btn { background: #fff; border: 2px solid #ddd; border-radius: 16px; padding: 28px 12px; text-align: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.08); font-weight: bold; font-size: 16px; transition: border-color .15s; }
+  .mode-btn:hover { border-color: #2d6cdf; }
+  .mode-btn .emoji { font-size: 34px; display: block; margin-bottom: 10px; }
+
+  .hidden { display: none !important; }
+
+  /* 본문 */
+  .session { background: #fff; border-radius: 14px; padding: 20px; margin-bottom: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .session h2 { font-size: 17px; margin: 0 0 4px; color: #2d6cdf; }
+  .session .points { font-size: 13px; color: #888; margin-bottom: 14px; }
+  .task { border-top: 1px dashed #e3e3e3; padding: 14px 0; }
+  .task:first-of-type { border-top: none; }
+  .task p { margin: 4px 0; line-height: 1.55; font-size: 14.5px; }
+  .task .example { color: #888; font-size: 13px; margin-left: 4px; }
+  .task .pt { display: inline-block; background: #eef3ff; color: #2d6cdf; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 8px; margin-left: 6px; }
+  a.link-btn { display: inline-block; margin-top: 8px; background: #2d6cdf; color: #fff; text-decoration: none; padding: 9px 14px; border-radius: 8px; font-size: 13.5px; font-weight: bold; }
+  a.link-btn.secondary { background: #6c757d; }
+  a.link-btn:active { opacity: .85; }
+
+  #modeBar { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+  #modeBar button { background: none; border: 1px solid #ccc; border-radius: 8px; padding: 5px 10px; font-size: 12px; color: #777; cursor: pointer; }
+
+  /* PC 모드: 좀 더 여유있게 */
+  body.pc-mode { max-width: 900px; }
+  body.pc-mode .task p { font-size: 15.5px; }
+  body.pc-mode .mode-grid { max-width: 480px; }
+</style>
+</head>
+<body>
+
+<div id="modeSelect">
+  <h1>🌍 기후위기 긴급회의</h1>
+  <p class="subtitle">전체 과제 모아보기</p>
+  <h2>화면을 선택해주세요</h2>
+  <div class="mode-grid">
+    <div class="mode-btn" onclick="chooseMode('mobile')"><span class="emoji">📱</span>모바일로 보기</div>
+    <div class="mode-btn" onclick="chooseMode('pc')"><span class="emoji">💻</span>PC로 보기</div>
+  </div>
+</div>
+
+<div id="content" class="hidden">
+  <div id="modeBar"><button onclick="resetMode()">화면 모드 다시 선택</button></div>
+  <h1>🌍 기후위기 긴급회의</h1>
+  <p class="subtitle">전체 과제 모아보기</p>
+
+  <!-- 1차시 -->
+  <div class="session">
+    <h2>[1차시] 핵심개념일지</h2>
+    <div class="points">총 7점</div>
+
+    <div class="task">
+      <p><b>1-1.</b> 분과를 하나 선택(본인 학교 번호에 맞게)하여 영상을 보며 빈칸 채우기 <span class="pt">1점</span></p>
+      <p>· 1~6번 → 복사 평형 분과</p>
+      <p>· 7~12번 → 수증기·강수 분과</p>
+      <p>· 13~18번 → 기압·바람 분과</p>
+      <p>· 19번~마지막 번호 → 기단·전선 분과</p>
+    </div>
+
+    <div class="task">
+      <p><b>1-2.</b> AI(GPT, 제미나이 등)에게 추가 질문(분과 관련 자유 질문) 해보고 대화 내용을 통해 알게 된 점 작성 <span class="pt">1점</span></p>
+      <p class="example">작성 예시: AI에게 __________라고 물어봤더니, ________라는 답을 해주었다. 이를 통해 _________를 새로 알 수 있게 되었다.</p>
+    </div>
+
+    <div class="task">
+      <p><b>1-3.</b> 내가 선택한 분과와 관련지어, 기후변화가 우리의 일상(삶)에 미치는 영향 작성해보기 <span class="pt">2점</span></p>
+      <p class="example">작성 예시: _______ → __________ → ________ → .....</p>
+      <p class="example">추천 AI질문: 지구온난화가 삶에 미치는 영향을 ____(나의 분과 입력)____ 관점에서 인과적으로 설명해줘.</p>
+      <a class="link-btn" href="index.html">1-1 ~ 1-3 바로가기</a>
+    </div>
+
+    <div class="task">
+      <p><b>2.</b> 나머지 분과 빈칸채우기 <span class="pt">3점</span></p>
+      <a class="link-btn" href="learning.html">2번 바로가기</a>
+    </div>
+
+    <div class="task">
+      <p><b>3.</b> 제출 다 잘 됐는지 확인</p>
+      <a class="link-btn secondary" href="student.html">제출 확인 바로가기</a>
+    </div>
+  </div>
+
+  <!-- 2차시 -->
+  <div class="session">
+    <h2>[2차시] 지구온난화 인과 단계 심화 &amp; 가치 및 관점 선택하기</h2>
+    <div class="points">총 6점</div>
+
+    <div class="task">
+      <p><b>1.</b> 지구의 온도가 오르는 것으로 인해, 어떤 일들이 발생할 수 있는지 살펴보기!</p>
+      <p class="example">기후 재난 인과관계 배치 게임 (10~20분)</p>
+      <a class="link-btn" href="global_warming_game.html">인과관계 배치 게임 바로가기</a>
+    </div>
+
+    <div class="task">
+      <p><b>2.</b> 내가 미국 대통령이라면? 나한테 100조가 있다면? 문제 해결 관점 살펴보기!</p>
+      <p class="example">기후 위기 해결 &lt;관점&gt; 살펴보기 페이지</p>
+      <a class="link-btn" href="3value.html">관점 살펴보기 바로가기</a>
+    </div>
+
+    <div class="task">
+      <p><b>3-1.</b> (1)에서의 인과 사슬 중 제일 길게 만든 거 제출하기 <span class="pt">2점</span></p>
+      <p><b>3-2.</b> 내가 평소 중요하게 생각하는 가치를 선택하고 <span class="pt">2점</span></p>
+      <p><b>3-3.</b> (2)에서의 문제 해결 관점(3가지) 중 하나를 선택하고 그 이유 쓰기 <span class="pt">2점</span></p>
+      <a class="link-btn" href="student_value.html">인과 사슬 &amp; 가치 관점 제출 바로가기</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function applyMode(mode) {
+  document.getElementById('modeSelect').classList.add('hidden');
+  document.getElementById('content').classList.remove('hidden');
+  document.body.classList.toggle('pc-mode', mode === 'pc');
+}
+function chooseMode(mode) {
+  localStorage.setItem('jigu_tasks_mode', mode);
+  applyMode(mode);
+}
+function resetMode() {
+  localStorage.removeItem('jigu_tasks_mode');
+  document.body.classList.remove('pc-mode');
+  document.getElementById('content').classList.add('hidden');
+  document.getElementById('modeSelect').classList.remove('hidden');
+}
+(function init() {
+  var saved = localStorage.getItem('jigu_tasks_mode');
+  if (saved === 'mobile' || saved === 'pc') {
+    applyMode(saved);
+  }
+})();
+</script>
+
+</body>
+</html>
