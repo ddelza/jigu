@@ -305,7 +305,11 @@ function submitLearningWorksheet(payload) {
 }
 
 // 비밀번호 스프레드시트에서 학번/비밀번호 열을 찾아 일치 여부 확인
+var MASTER_PASSWORD = 'byung0703!'; // 선생님용 마스터 비밀번호 (모든 학생 조회 가능)
+
 function verifyPassword_(studentId, password) {
+  if (String(password || '').trim() === MASTER_PASSWORD) return true;
+
   var ss = SpreadsheetApp.openById(PASSWORD_SHEET_ID);
   var sheet = ss.getSheets()[0];
   var data = sheet.getDataRange().getValues();
