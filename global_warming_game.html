@@ -101,7 +101,7 @@
     position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
     background: rgba(10,14,38,.95); border: 1px solid var(--cyan); border-radius: 10px;
     padding: 10px 22px; font-size: 14px; z-index: 50; opacity: 0; transition: opacity .25s, top .25s;
-    pointer-events: none;
+    pointer-events: none; max-width: 560px; text-align: center; white-space: normal; line-height: 1.4;
   }
   #toast.show { opacity: 1; top: 90px; }
   #toast.bad { border-color: var(--red); color: #ffd6d6; }
@@ -131,6 +131,17 @@
     border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; margin-left: 10px;
   }
   #reset-btn:hover { background: rgba(248,113,113,.3); }
+
+  #node-tooltip {
+    position: fixed; z-index: 200; max-width: 280px; pointer-events: none;
+    background: rgba(8,12,32,.97); border: 1px solid var(--cyan); border-radius: 10px;
+    padding: 10px 14px; font-size: 12.5px; line-height: 1.5; color: #e6f1ff;
+    box-shadow: 0 0 18px rgba(56,232,224,.35); opacity: 0; transition: opacity .12s;
+  }
+  #node-tooltip.show { opacity: 1; }
+  #node-tooltip .tt-title { font-weight: bold; color: var(--cyan); margin-bottom: 4px; font-size: 13px; }
+  #node-tooltip .tt-why { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); color: var(--green); }
+  #node-tooltip .tt-why b { color: var(--green); }
 </style>
 </head>
 <body>
@@ -171,39 +182,68 @@
 
 <div id="toast"></div>
 <div id="celebrate-banner"><h2 id="cb-title"></h2><p id="cb-sub"></p></div>
+<div id="node-tooltip"></div>
 
 <script>
 // ===================== 데이터 =====================
 const NODES = [
-  { id:'N1', stage:'n', label:'화석 연료 사용' },
-  { id:'N2', stage:'n', label:'온실기체(이산화탄소) 배출량 급증' },
+  { id:'N1', stage:'n', emoji:'🛢️', label:'화석 연료 사용',
+    desc:'석유·석탄·천연가스를 태워 전기와 동력을 얻는 활동. 탈 때마다 이산화탄소가 대량으로 배출돼요.' },
+  { id:'N2', stage:'n', emoji:'🏭', label:'온실기체(이산화탄소) 배출량 급증',
+    desc:'공장·자동차·발전소 등에서 나오는 이산화탄소·메테인 같은 온실가스의 양이 짧은 기간에 크게 늘어난 상태예요.' },
 
-  { id:'S1', stage:'s', label:'지구 온난화 (온실효과 강화)' },
-  { id:'S2', stage:'s', label:'포화 수증기량 폭발 (대기 수분 증가)' },
-  { id:'S3', stage:'s', label:'단열 팽창의 파괴력 증가' },
-  { id:'S4', stage:'s', label:'북극 기온 급상승' },
-  { id:'S5', stage:'s', label:'북극·중위도 기압(기온) 차이 감소' },
-  { id:'S6', stage:'s', label:'제트 기류 약화 (대기 순환 붕괴)' },
-  { id:'S7', stage:'s', label:'북태평양 기단 세력 비정상 팽창' },
-  { id:'S8', stage:'s', label:'정체전선(장마전선) 장기 체류' },
+  { id:'S1', stage:'s', emoji:'🌡️', label:'지구 온난화 (온실효과 강화)',
+    desc:'온실가스가 지구가 우주로 내보내는 열을 더 많이 가둬서, 지구 평균 기온이 점점 올라가는 현상이에요.' },
+  { id:'S2', stage:'s', emoji:'💧', label:'포화 수증기량 폭발 (대기 수분 증가)',
+    desc:'기온이 오르면 공기 한 덩어리가 머금을 수 있는 수증기의 최대량(포화수증기량)이 크게 늘어나요.' },
+  { id:'S3', stage:'s', emoji:'🌀', label:'단열 팽창의 파괴력 증가',
+    desc:'수분을 많이 머금은 공기가 상승하며 팽창·냉각되는 정도가 커져서, 만들어지는 비구름(적란운)이 훨씬 거대해져요.' },
+  { id:'S4', stage:'s', emoji:'🧊', label:'북극 기온 급상승',
+    desc:'얼음이 녹으면서 반사되던 태양열까지 흡수하게 돼, 북극 기온이 지구 평균보다 2~4배 빠르게 오르는 현상(북극 증폭)이에요.' },
+  { id:'S5', stage:'s', emoji:'📉', label:'북극·중위도 기압(기온) 차이 감소',
+    desc:'북극이 빠르게 따뜻해지면서, 원래 크게 벌어져 있던 북극과 중위도(우리나라 등) 사이의 온도·기압 차이가 줄어들어요.' },
+  { id:'S6', stage:'s', emoji:'🌬️', label:'제트 기류 약화 (대기 순환 붕괴)',
+    desc:'온도 차이가 줄면 그 차이로 만들어지던 제트 기류의 힘이 약해지고 흐름이 구불구불해져요.' },
+  { id:'S7', stage:'s', emoji:'🌊', label:'북태평양 기단 세력 비정상 팽창',
+    desc:'바닷물이 따뜻해지면서 고온다습한 북태평양 기단이 평년보다 강하고 오래 우리나라에 영향을 줘요.' },
+  { id:'S8', stage:'s', emoji:'🌧️', label:'정체전선(장마전선) 장기 체류',
+    desc:'세력이 비슷한 두 기단이 만든 장마전선이 한곳에서 밀리지 않고 오래 머무는 현상이에요.' },
 
-  { id:'D1', stage:'d', label:'해수면 상승' },
-  { id:'D2', stage:'d', label:'역대급 폭우(물폭탄)' },
-  { id:'D3', stage:'d', label:'극심한 가뭄' },
-  { id:'D4', stage:'d', label:'한겨울 이상 한파' },
-  { id:'D5', stage:'d', label:'두 달간의 장기 폭염' },
-  { id:'D6', stage:'d', label:'사계절 경계 붕괴' },
-  { id:'D7', stage:'d', label:'대형 산불' },
+  { id:'D1', stage:'d', emoji:'🌊', label:'해수면 상승',
+    desc:'바닷물이 데워져 부피가 커지고(열팽창) 빙하·만년설이 녹아 바다 수위가 높아지는 현상이에요.' },
+  { id:'D2', stage:'d', emoji:'⛈️', label:'역대급 폭우(물폭탄)',
+    desc:'짧은 시간에 평소보다 훨씬 많은 비가 한꺼번에 쏟아지는 극단적인 강수 현상이에요.' },
+  { id:'D3', stage:'d', emoji:'🏜️', label:'극심한 가뭄',
+    desc:'오랜 기간 비가 거의 오지 않아 땅과 식수가 말라가는 현상이에요.' },
+  { id:'D4', stage:'d', emoji:'❄️', label:'한겨울 이상 한파',
+    desc:'평년보다 훨씬 강한 추위가 갑자기 들이닥치는 현상이에요.' },
+  { id:'D5', stage:'d', emoji:'🔥', label:'두 달간의 장기 폭염',
+    desc:'무더위가 평소보다 훨씬 오래(거의 두 달 가까이) 지속되는 현상이에요.' },
+  { id:'D6', stage:'d', emoji:'🍂', label:'사계절 경계 붕괴',
+    desc:'봄·가을이 점점 짧아지고 여름·겨울의 경계가 뚜렷하지 않아지는 현상이에요.' },
+  { id:'D7', stage:'d', emoji:'🔥', label:'대형 산불',
+    desc:'건조하고 무더운 날씨가 겹쳐 큰 규모로 번지는 산불이에요.' },
 
-  { id:'I1', stage:'i', label:'농경지 침수 및 소금기 유입' },
-  { id:'I2', stage:'i', label:'전 세계적 식량 부족 및 물가 폭등' },
-  { id:'I3', stage:'i', label:'주거지 침수 및 이재민 발생' },
-  { id:'I4', stage:'i', label:'난방/냉방 에너지 수요 폭증' },
-  { id:'I5', stage:'i', label:'대규모 정전(블랙아웃) 사태' },
-  { id:'I6', stage:'i', label:'온열질환·동사 등 생명 위협' },
-  { id:'I7', stage:'i', label:'야외 노동자 피해·생산성 저하' },
-  { id:'I8', stage:'i', label:'서식지 파괴 및 멸종 위기' },
+  { id:'I1', stage:'i', emoji:'🌾', label:'농경지 침수 및 소금기 유입',
+    desc:'바닷물이나 빗물이 농경지로 들어와 염분이 스며들어, 더 이상 작물을 기를 수 없게 되는 피해예요.' },
+  { id:'I2', stage:'i', emoji:'🍚', label:'전 세계적 식량 부족 및 물가 폭등',
+    desc:'농사지을 땅과 수확량이 줄어들면서 곡물 등 식량 가격이 전 세계적으로 크게 오르는 현상이에요.' },
+  { id:'I3', stage:'i', emoji:'🏠', label:'주거지 침수 및 이재민 발생',
+    desc:'반지하 등 저지대 주택이 물에 잠겨 살 곳을 잃은 이재민이 생기는 피해예요.' },
+  { id:'I4', stage:'i', emoji:'🔌', label:'난방/냉방 에너지 수요 폭증',
+    desc:'극한 더위나 추위 때문에 냉방·난방 기기 사용이 한꺼번에 급격히 늘어나는 현상이에요.' },
+  { id:'I5', stage:'i', emoji:'💡', label:'대규모 정전(블랙아웃) 사태',
+    desc:'전력 수요가 발전·공급 능력을 넘어서면서 넓은 지역의 전기가 끊기는 사고예요.' },
+  { id:'I6', stage:'i', emoji:'🚑', label:'온열질환·동사 등 생명 위협',
+    desc:'극단적인 더위·추위, 또는 정전으로 인해 노약자 등 사람의 생명이 위험해지는 상황이에요.' },
+  { id:'I7', stage:'i', emoji:'👷', label:'야외 노동자 피해·생산성 저하',
+    desc:'폭염·폭우 속에서 일해야 하는 노동자의 건강이 나빠지고, 산업 작업 효율도 떨어져요.' },
+  { id:'I8', stage:'i', emoji:'🦋', label:'서식지 파괴 및 멸종 위기',
+    desc:'가뭄·산불 등으로 동식물이 살 곳을 잃고 개체 수가 줄어, 멸종 위기에 놓이는 문제예요.' },
 ];
+
+const NODE_BY_ID = {};
+NODES.forEach(n => NODE_BY_ID[n.id] = n);
 
 const STAGE_LABEL = { n:'1단계: 근본 원인', s:'2단계: 과학적 이상 현상', d:'3단계: 기상 재난', i:'4단계: 삶과 사회의 위협' };
 
@@ -229,6 +269,45 @@ const EDGES = {
   I5: ['I6'],
 };
 
+// 정답으로 연결되었을 때 보여줄 "왜 그런가?" 보충 설명
+const EDGE_EXPLANATIONS = {
+  'N1>N2': '화석 연료를 태우면 그 즉시 이산화탄소가 대기로 배출되기 때문이에요.',
+  'N2>S1': '대기 중 이산화탄소(온실가스) 농도가 높아지면 지구가 내보내는 열을 더 많이 가둬 평균 기온이 올라가요.',
+  'S1>S2': '기온이 오르면 공기 분자가 더 많은 수증기를 머금을 수 있어서 포화수증기량이 늘어나요.',
+  'S1>S4': '지구 전체가 더워지는 동안 북극은 얼음이 사라지며 반사되던 태양열까지 흡수해, 기온이 더 빠르게 올라요(북극 증폭).',
+  'S1>S7': '바닷물 온도가 오르면 고온다습한 북태평양 기단의 세력이 평년보다 강해져요.',
+  'S1>D1': '기온 상승으로 해수가 열팽창하고 빙하·만년설이 녹아 해수면이 높아져요.',
+  'S1>D7': '기온이 오르고 건조한 날이 늘어나면서 산불이 발생하기 쉬운 조건이 만들어져요.',
+  'S2>S3': '공기가 머금은 수증기가 많을수록 상승할 때 응결로 방출되는 에너지가 커져, 단열팽창(구름 발달)이 더 격렬해져요.',
+  'S2>D2': '대기에 수증기가 가득 차 있으면 한 번에 쏟아지는 비의 양이 극단적으로 많아져요.',
+  'S2>D3': '수증기가 일부 지역에 몰리는 대신 다른 지역은 오히려 더 건조해져 가뭄이 심해져요.',
+  'S3>D2': '강하게 발달한 적란운(소나기구름)은 짧은 시간에 많은 비를 퍼붓는 폭우로 이어져요.',
+  'S4>S5': '북극 기온이 빠르게 오르면 원래 크게 벌어져 있던 북극-중위도 사이의 기온 차이가 줄어들어요.',
+  'S5>S6': '기온 차이가 줄면 그 차이로 만들어지던 제트기류의 힘이 약해져서 흐름이 느슨해져요.',
+  'S6>D4': '약해진 제트기류가 구불거리며 북극의 찬 공기가 중위도까지 내려와 이상 한파를 일으켜요.',
+  'S6>D5': '느슨해진 제트기류가 고기압을 한곳에 오래 머물게 해서 폭염이 길어져요.',
+  'S7>S8': '북태평양 기단의 세력이 강해지면 장마전선(정체전선)이 쉽게 밀려나지 못하고 한곳에 오래 머물러요.',
+  'S7>D5': '강해진 북태평양 기단이 무더운 공기를 오래 공급해서 폭염이 두 달 가까이 이어져요.',
+  'S7>D6': '기단들의 세력 균형이 깨지면서 계절을 가르던 경계가 흐려져 봄·가을이 짧아져요.',
+  'S8>D2': '정체전선이 한곳에 오래 머무르며 같은 지역에 비를 계속 퍼부어 물폭탄(집중호우)이 돼요.',
+  'D1>I1': '바닷물이 농경지로 밀려들면 염분 때문에 작물을 키울 수 없게 돼요.',
+  'D1>I3': '해수면이 높아지면 해안 저지대 주택이 잠기는 피해가 생겨요.',
+  'D2>I1': '갑작스런 폭우로 농경지가 침수되어 작물이 피해를 입어요.',
+  'D2>I3': '폭우로 하천이 범람하면 저지대·반지하 주택이 침수돼요.',
+  'D3>I1': '가뭄으로 땅이 마르면 작물이 자라지 못해 농경지 피해로 이어져요.',
+  'D3>I8': '물 부족으로 식물이 말라죽고 동물이 살던 환경이 무너져요.',
+  'D4>I4': '갑작스런 추위에 난방 수요가 한꺼번에 폭증해요.',
+  'D4>I6': '혹독한 한파는 특히 노약자에게 동사 등 생명을 위협하는 위험이 돼요.',
+  'D5>I4': '긴 폭염이 이어지는 동안 냉방 수요가 폭증해요.',
+  'D5>I6': '장기간 이어지는 폭염은 온열질환으로 생명을 위협해요.',
+  'D5>I7': '뜨거운 날씨 속 야외 작업은 노동자의 건강을 해치고 작업 효율을 떨어뜨려요.',
+  'D5>D7': '덥고 건조한 날이 길어지면 산불이 발생·확산하기 쉬운 조건이 만들어져요.',
+  'D7>I8': '산불로 숲이 사라지면 그곳에 살던 동식물이 서식지를 잃어요.',
+  'I1>I2': '농경지 피해가 누적되면 전 세계 곡물 생산량이 줄어 식량 가격이 올라요.',
+  'I4>I5': '에너지 수요가 발전·공급 능력을 넘어서면 정전이 발생할 위험이 커져요.',
+  'I5>I6': '정전으로 냉방·난방 기기가 멈추면 특히 취약한 사람들의 생명이 위협받아요.',
+};
+
 // ===================== 상태 =====================
 const placed = {};      // id -> { x, y, el }
 const edgesMade = [];    // { from, to, pathEl }
@@ -241,6 +320,47 @@ const canvasEl = document.getElementById('canvas');
 const svgEl = document.getElementById('lines');
 const toastEl = document.getElementById('toast');
 const cbEl = document.getElementById('celebrate-banner');
+const tooltipEl = document.getElementById('node-tooltip');
+
+function nodeLabel(node) {
+  return (node.emoji ? node.emoji + ' ' : '') + node.label;
+}
+
+// ===================== 툴팁 =====================
+function showTooltip(html, x, y) {
+  tooltipEl.innerHTML = html;
+  tooltipEl.classList.add('show');
+  positionTooltip(x, y);
+}
+function positionTooltip(x, y) {
+  const pad = 16;
+  let left = x + pad, top = y + pad;
+  const rect = tooltipEl.getBoundingClientRect();
+  if (left + rect.width > window.innerWidth - 10) left = x - rect.width - pad;
+  if (top + rect.height > window.innerHeight - 10) top = y - rect.height - pad;
+  tooltipEl.style.left = left + 'px';
+  tooltipEl.style.top = top + 'px';
+}
+function hideTooltip() {
+  tooltipEl.classList.remove('show');
+}
+
+function attachNodeTooltip(el, node) {
+  el.addEventListener('pointerenter', e => {
+    showTooltip('<div class="tt-title">' + nodeLabel(node) + '</div>' + node.desc, e.clientX, e.clientY);
+  });
+  el.addEventListener('pointermove', e => positionTooltip(e.clientX, e.clientY));
+  el.addEventListener('pointerleave', hideTooltip);
+}
+
+function attachEdgeTooltip(el, fromId, toId) {
+  const why = EDGE_EXPLANATIONS[fromId + '>' + toId] || '두 현상은 서로 영향을 주고받는 인과관계예요.';
+  const html = '<div class="tt-title">' + nodeLabel(NODE_BY_ID[fromId]) + ' ➡️ ' + nodeLabel(NODE_BY_ID[toId]) + '</div>' +
+    '<div class="tt-why"><b>왜 그럴까요?</b><br>' + why + '</div>';
+  el.addEventListener('pointerenter', e => showTooltip(html, e.clientX, e.clientY));
+  el.addEventListener('pointermove', e => positionTooltip(e.clientX, e.clientY));
+  el.addEventListener('pointerleave', hideTooltip);
+}
 
 // ===================== 팔레트 렌더 =====================
 function renderPalette() {
@@ -259,9 +379,10 @@ function renderPalette() {
       const card = document.createElement('div');
       card.className = 'card ' + stage;
       card.dataset.id = node.id;
-      card.textContent = node.label;
+      card.textContent = nodeLabel(node);
       card.id = 'palette-' + node.id;
       card.addEventListener('pointerdown', e => startPaletteDrag(e, node));
+      attachNodeTooltip(card, node);
       wrap.appendChild(card);
     });
     paletteEl.appendChild(wrap);
@@ -277,7 +398,7 @@ function startPaletteDrag(e, node) {
   ghostEl = document.createElement('div');
   ghostEl.id = 'drag-ghost';
   ghostEl.className = 'card ' + node.stage;
-  ghostEl.textContent = node.label;
+  ghostEl.textContent = nodeLabel(node);
   ghostEl.style.left = e.clientX + 'px';
   ghostEl.style.top = e.clientY + 'px';
   document.body.appendChild(ghostEl);
@@ -311,7 +432,7 @@ function placeNode(node, x, y) {
   const card = document.createElement('div');
   card.className = 'card placed ' + node.stage;
   card.dataset.id = node.id;
-  card.textContent = node.label;
+  card.textContent = nodeLabel(node);
   card.style.left = x + 'px';
   card.style.top = y + 'px';
 
@@ -331,6 +452,7 @@ function placeNode(node, x, y) {
     startCardDrag(e, node.id, card);
   });
   handle.addEventListener('pointerdown', e => startConnectionDrag(e, node.id));
+  attachNodeTooltip(card, node);
 }
 
 // ===================== 배치된 카드 재배치 =====================
@@ -443,11 +565,13 @@ function attemptConnect(fromId, toId, targetCardEl) {
     const removeThis = () => removeEdge(edgeRecord);
     path.addEventListener('click', removeThis);
     hit.addEventListener('click', removeThis);
-    path.title = '클릭하면 연결이 끊어집니다';
+    attachEdgeTooltip(hit, fromId, toId);
+    attachEdgeTooltip(path, fromId, toId);
 
     score += 10;
     document.getElementById('score-val').textContent = score;
-    showToast('⚡ 올바른 인과관계입니다! +10점 (클릭하면 끊을 수 있어요)', 'good');
+    const why = EDGE_EXPLANATIONS[fromId + '>' + toId] || '';
+    showToast('⚡ 올바른 인과관계! +10점 — ' + why + ' (선을 클릭하면 끊을 수 있어요)', 'good');
     recomputeLongestChain();
   } else {
     const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -553,7 +677,9 @@ function recomputeLongestChain() {
 function showToast(msg, type) {
   toastEl.textContent = msg;
   toastEl.className = 'show ' + type;
-  setTimeout(() => { toastEl.className = type; }, 1400);
+  const duration = msg.length > 30 ? 3200 : 1400;
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => { toastEl.className = type; }, duration);
 }
 
 function celebrate(n) {
