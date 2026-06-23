@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>기후 재난 인과관계 배치 게임 — 정답 보기</title>
+<style>
+  :root {
+    --bg: #060818;
+    --panel: #0d1230;
+    --panel-light: #131a3d;
+    --line: #1f2a5c;
+    --cyan: #38e8e0;
+    --yellow: #facc15;
+    --blue: #38bdf8;
+    --red: #f87171;
+    --purple: #a78bfa;
+    --green: #34d399;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: #e6f1ff; font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; overflow: hidden; }
+
+  #app { display: flex; flex-direction: column; height: 100vh; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px; background: linear-gradient(90deg, #0a0e26, #131a3d);
+    border-bottom: 1px solid var(--cyan); box-shadow: 0 0 20px rgba(56,232,224,.2);
+    z-index: 5;
+  }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: 1px; color: var(--cyan); text-shadow: 0 0 8px rgba(56,232,224,.6); }
+  header h1 span { color: #fff; font-weight: normal; font-size: 13px; display: block; margin-top: 2px; }
+
+  #mission {
+    text-align: right; font-size: 13px; color: #9fb3ff;
+    background: rgba(56,232,224,.08); border: 1px solid var(--cyan); border-radius: 10px;
+    padding: 8px 16px;
+  }
+  #mission .big { font-size: 26px; font-weight: bold; color: var(--cyan); text-shadow: 0 0 10px var(--cyan); }
+  #score-display { font-size: 13px; color: var(--yellow); margin-top: 4px; }
+  #progress-display { font-size: 12px; color: #9fb3ff; margin-top: 2px; }
+  #opacity-control { font-size: 12px; color: #9fb3ff; margin-top: 6px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  #opacity-control input[type="range"] { width: 90px; cursor: pointer; accent-color: var(--cyan); }
+  .edge-line { opacity: var(--arrow-opacity, 1); }
+  .edge-line.longest-chain { stroke-width: 5; animation: dashflow 1s linear infinite, glowPulse 1.2s ease-in-out infinite; }
+  @keyframes glowPulse {
+    0%,100% { filter: drop-shadow(0 0 6px #ff9100) drop-shadow(0 0 2px #fff); }
+    50% { filter: drop-shadow(0 0 16px #ff9100) drop-shadow(0 0 6px #fff); }
+  }
+
+  #layout { flex: 1; display: flex; overflow: hidden; }
+
+  /* ===== Palette ===== */
+  #palette {
+    width: 260px; flex-shrink: 0; overflow-y: auto; padding: 14px 10px;
+    background: var(--panel); border-right: 1px solid var(--line);
+  }
+  .stage-group { margin-bottom: 18px; }
+  .stage-title { font-size: 12px; font-weight: bold; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px dashed var(--line); opacity: .9; }
+  .card {
+    user-select: none; padding: 9px 10px; margin-bottom: 7px; border-radius: 8px;
+    font-size: 12.5px; line-height: 1.35; cursor: grab; border: 1px solid transparent;
+    transition: transform .12s, box-shadow .12s; position: relative;
+  }
+  .card.n { background: rgba(250,204,21,.12); border-color: var(--yellow); color: #fff7d6; }
+  .card.s { background: rgba(56,189,248,.12); border-color: var(--blue); color: #dff3ff; }
+  .card.d { background: rgba(248,113,113,.12); border-color: var(--red); color: #ffe4e4; }
+  .card.i { background: rgba(167,139,250,.12); border-color: var(--purple); color: #ece4ff; }
+  .card:hover { transform: translateY(-1px); box-shadow: 0 0 10px currentColor; }
+  .card.used { opacity: .25; cursor: not-allowed; pointer-events: none; }
+
+  /* ===== Canvas ===== */
+  #canvas-wrap { flex: 1; position: relative; overflow: auto; background:
+      radial-gradient(circle at 20% 20%, rgba(56,232,224,.05), transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(167,139,250,.06), transparent 40%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 28px);
+  }
+  #canvas { position: relative; width: 1900px; height: 1300px; }
+  svg#lines { position: absolute; top: 0; left: 0; width: 1900px; height: 1300px; pointer-events: none; overflow: visible; }
+
+  .card.placed {
+    position: absolute; width: 168px; padding: 10px 28px 10px 10px;
+    cursor: grab; z-index: 2; box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  }
+  .card.placed:active { cursor: grabbing; }
+  .card.placed.shake { animation: shake .35s; }
+  .card.placed.selected { box-shadow: 0 0 0 2px var(--cyan), 0 4px 14px rgba(0,0,0,.5); }
+  #select-box {
+    position: absolute; border: 1.5px dashed var(--cyan); background: rgba(56,232,224,.08);
+    z-index: 5; pointer-events: none; display: none;
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  .handle {
+    position: absolute; right: -9px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; border-radius: 50%; background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan); cursor: crosshair; z-index: 3;
+    border: 2px solid #0a0e26;
+  }
+  .handle:hover { transform: translateY(-50%) scale(1.25); }
+
+  /* ===== Misc ===== */
+  #drag-ghost {
+    position: fixed; pointer-events: none; z-index: 999; opacity: .85;
+    transform: translate(-50%, -50%); width: 168px;
+  }
+
+  #toast {
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,14,38,.95); border: 1px solid var(--cyan); border-radius: 10px;
+    padding: 10px 22px; font-size: 14px; z-index: 50; opacity: 0; transition: opacity .25s, top .25s;
+    pointer-events: none; max-width: 560px; text-align: center; white-space: normal; line-height: 1.4;
+  }
+  #toast.show { opacity: 1; top: 90px; }
+  #toast.bad { border-color: var(--red); color: #ffd6d6; }
+  #toast.good { border-color: var(--green); color: #d6ffe9; }
+
+  #celebrate-banner {
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%,-50%) scale(.7);
+    background: linear-gradient(135deg, rgba(56,232,224,.18), rgba(167,139,250,.18));
+    border: 2px solid var(--cyan); border-radius: 16px; padding: 26px 40px;
+    text-align: center; z-index: 100; opacity: 0; pointer-events: none;
+    transition: opacity .3s, transform .3s; box-shadow: 0 0 40px rgba(56,232,224,.5);
+  }
+  #celebrate-banner.show { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  #celebrate-banner h2 { margin: 0 0 6px; font-size: 26px; color: var(--cyan); text-shadow: 0 0 12px var(--cyan); }
+  #celebrate-banner p { margin: 0; font-size: 14px; color: #fff; }
+
+  .confetti {
+    position: fixed; top: -20px; width: 9px; height: 9px; z-index: 90; pointer-events: none;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    to { transform: translateY(110vh) rotate(540deg); opacity: 0; }
+  }
+
+  #reset-btn {
+    background: rgba(248,113,113,.15); border: 1px solid var(--red); color: #ffdada;
+    border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; margin-left: 10px;
+  }
+  #reset-btn:hover { background: rgba(248,113,113,.3); }
+
+  #node-tooltip {
+    position: fixed; z-index: 200; max-width: 280px; pointer-events: none;
+    background: rgba(8,12,32,.97); border: 1px solid var(--cyan); border-radius: 10px;
+    padding: 10px 14px; font-size: 12.5px; line-height: 1.5; color: #e6f1ff;
+    box-shadow: 0 0 18px rgba(56,232,224,.35); opacity: 0; transition: opacity .12s;
+  }
+  #node-tooltip.show { opacity: 1; }
+  #node-tooltip .tt-title { font-weight: bold; color: var(--cyan); margin-bottom: 4px; font-size: 13px; }
+  #node-tooltip .tt-why { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); color: var(--green); }
+  #node-tooltip .tt-why b { color: var(--green); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <h1>🏆 기후 재난 인과관계 배치 게임 — 정답 보기 <span>Climate Causality Map (Answer) — 모든 인과관계가 이미 배치되어 있어요. 카드와 화살표에 커서를 올려 설명을 확인하세요. <a href="global_warming_game.html" style="color:var(--cyan);">← 게임 직접 풀어보기</a></span></h1>
+    </div>
+    <div id="mission">
+      🎯 가장 긴 인과 사슬 찾기 미션!
+      <div class="big"><span id="chain-count">1</span>단계</div>
+      <div id="score-display">SCORE: <b id="score-val">0</b></div>
+      <div id="progress-display">연결 <b id="edge-count">0</b>/<span id="edge-total">71</span> · 단계 <b id="chain-progress">1</b>/<span id="chain-total">13</span></div>
+      <div id="opacity-control">
+        🏹 화살표 투명도 <input type="range" id="arrow-opacity" min="5" max="100" value="100">
+      </div>
+      <button id="reset-btn">초기화</button>
+    </div>
+  </header>
+
+  <div id="layout">
+    <aside id="palette"></aside>
+    <div id="canvas-wrap">
+      <div id="canvas">
+        <div id="select-box"></div>
+        <svg id="lines">
+          <defs>
+            <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#34d399"></path>
+            </marker>
+            <marker id="arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#f87171"></path>
+            </marker>
+            <marker id="arrow-temp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#38e8e0"></path>
+            </marker>
+            <marker id="arrow-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#ff9100"></path>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="celebrate-banner"><h2 id="cb-title"></h2><p id="cb-sub"></p></div>
+<div id="node-tooltip"></div>
+
+<script>
+// ===================== 데이터 =====================
+const NODES = [
+  { id:'N1', stage:'n', emoji:'🛢️', label:'화석 연료 사용',
+    desc:'석유·석탄·천연가스를 태워 전기와 동력을 얻는 활동. 탈 때마다 이산화탄소가 대량으로 배출돼요.' },
+  { id:'N2', stage:'n', emoji:'🏭', label:'온실기체(이산화탄소) 배출량 급증',
+    desc:'공장·자동차·발전소 등에서 나오는 이산화탄소·메테인 같은 온실가스의 양이 짧은 기간에 크게 늘어난 상태예요.' },
+
+  { id:'S1', stage:'s', emoji:'🌡️', label:'지구 온난화 (온실효과 강화)',
+    desc:'온실가스가 지구가 우주로 내보내는 열을 더 많이 가둬서, 지구 평균 기온이 점점 올라가는 현상이에요.' },
+  { id:'S2', stage:'s', emoji:'💧', label:'포화 수증기량 폭발 (대기 수분 증가)',
+    desc:'기온이 오르면 공기 한 덩어리가 머금을 수 있는 수증기의 최대량(포화수증기량)이 크게 늘어나요.' },
+  { id:'S3', stage:'s', emoji:'🌀', label:'단열 팽창의 파괴력 증가',
+    desc:'수분을 많이 머금은 공기가 상승하며 팽창·냉각되는 정도가 커져서, 만들어지는 비구름(적란운)이 훨씬 거대해져요.' },
+  { id:'S4', stage:'s', emoji:'🧊', label:'북극 기온 급상승',
+    desc:'얼음이 녹으면서 반사되던 태양열까지 흡수하게 돼, 북극 기온이 지구 평균보다 2~4배 빠르게 오르는 현상(북극 증폭)이에요.' },
+  { id:'S5', stage:'s', emoji:'📉', label:'북극·중위도 기압(기온) 차이 감소',
+    desc:'북극이 빠르게 따뜻해지면서, 원래 크게 벌어져 있던 북극과 중위도(우리나라 등) 사이의 온도·기압 차이가 줄어들어요.' },
+  { id:'S6', stage:'s', emoji:'🌬️', label:'제트 기류 약화 (대기 순환 붕괴)',
+    desc:'온도 차이가 줄면 그 차이로 만들어지던 제트 기류의 힘이 약해지고 흐름이 구불구불해져요.' },
+  { id:'S7', stage:'s', emoji:'🌊', label:'북태평양 기단 세력 비정상 팽창',
+    desc:'바닷물이 따뜻해지면서 고온다습한 북태평양 기단이 평년보다 강하고 오래 우리나라에 영향을 줘요.' },
+  { id:'S8', stage:'s', emoji:'🌧️', label:'정체전선(장마전선) 장기 체류',
+    desc:'세력이 비슷한 두 기단이 만든 장마전선이 한곳에서 밀리지 않고 오래 머무는 현상이에요.' },
+
+  { id:'D1', stage:'d', emoji:'🌊', label:'해수면 상승',
+    desc:'바닷물이 데워져 부피가 커지고(열팽창) 빙하·만년설이 녹아 바다 수위가 높아지는 현상이에요.' },
+  { id:'D2', stage:'d', emoji:'⛈️', label:'역대급 폭우(물폭탄)',
+    desc:'짧은 시간에 평소보다 훨씬 많은 비가 한꺼번에 쏟아지는 극단적인 강수 현상이에요.' },
+  { id:'D3', stage:'d', emoji:'🏜️', label:'극심한 가뭄',
+    desc:'오랜 기간 비가 거의 오지 않아 땅과 식수가 말라가는 현상이에요.' },
+  { id:'D4', stage:'d', emoji:'❄️', label:'한겨울 이상 한파',
+    desc:'평년보다 훨씬 강한 추위가 갑자기 들이닥치는 현상이에요.' },
+  { id:'D5', stage:'d', emoji:'🔥', label:'두 달간의 장기 폭염',
+    desc:'무더위가 평소보다 훨씬 오래(거의 두 달 가까이) 지속되는 현상이에요.' },
+  { id:'D6', stage:'d', emoji:'🍂', label:'사계절 경계 붕괴',
+    desc:'봄·가을이 점점 짧아지고 여름·겨울의 경계가 뚜렷하지 않아지는 현상이에요.' },
+  { id:'D7', stage:'d', emoji:'🔥', label:'대형 산불',
+    desc:'건조하고 무더운 날씨가 겹쳐 큰 규모로 번지는 산불이에요.' },
+
+  { id:'I1', stage:'i', emoji:'🌾', label:'농경지 침수 및 소금기 유입',
+    desc:'바닷물이나 빗물이 농경지로 들어와 염분이 스며들어, 더 이상 작물을 기를 수 없게 되는 피해예요.' },
+  { id:'I2', stage:'i', emoji:'🍚', label:'전 세계적 식량 부족 및 물가 폭등',
+    desc:'농사지을 땅과 수확량이 줄어들면서 곡물 등 식량 가격이 전 세계적으로 크게 오르는 현상이에요.' },
+  { id:'I3', stage:'i', emoji:'🏠', label:'주거지 침수 및 이재민 발생',
+    desc:'반지하 등 저지대 주택이 물에 잠겨 살 곳을 잃은 이재민이 생기는 피해예요.' },
+  { id:'I4', stage:'i', emoji:'🔌', label:'난방/냉방 에너지 수요 폭증',
+    desc:'극한 더위나 추위 때문에 냉방·난방 기기 사용이 한꺼번에 급격히 늘어나는 현상이에요.' },
+  { id:'I5', stage:'i', emoji:'💡', label:'대규모 정전(블랙아웃) 사태',
+    desc:'전력 수요가 발전·공급 능력을 넘어서면서 넓은 지역의 전기가 끊기는 사고예요.' },
+  { id:'I6', stage:'i', emoji:'🚑', label:'온열질환·동사 등 생명 위협',
+    desc:'극단적인 더위·추위, 또는 정전으로 인해 노약자 등 사람의 생명이 위험해지는 상황이에요.' },
+  { id:'I7', stage:'i', emoji:'👷', label:'야외 노동자 피해·생산성 저하',
+    desc:'폭염·폭우 속에서 일해야 하는 노동자의 건강이 나빠지고, 산업 작업 효율도 떨어져요.' },
+  { id:'I8', stage:'i', emoji:'🦋', label:'서식지 파괴 및 멸종 위기',
+    desc:'가뭄·산불 등으로 동식물이 살 곳을 잃고 개체 수가 줄어, 멸종 위기에 놓이는 문제예요.' },
+];
+
+const NODE_BY_ID = {};
+NODES.forEach(n => NODE_BY_ID[n.id] = n);
+
+const STAGE_LABEL = { n:'1단계: 근본 원인', s:'2단계: 과학적 이상 현상', d:'3단계: 기상 재난', i:'4단계: 삶과 사회의 위협' };
+
+const EDGES = {
+  N1: ['N2'],
+  N2: ['S1'],
+  S1: ['S2','S3','S4','S6','S7','S8','D1','D2','D3','D4','D5','D6','D7'],
+  S2: ['S3','S7','S8','D2','D3'],
+  S3: ['D2','D7'],
+  S4: ['S5','D1','D7'],
+  S5: ['S6'],
+  S6: ['D2','D4','D5','D6'],
+  S7: ['S8','D2','D5','D6'],
+  S8: ['D2','D3'],
+  D1: ['I1','I3','I8'],
+  D2: ['I1','I3','I6','I7'],
+  D3: ['I1','I2','I8','D7'],
+  D4: ['I4','I5','I6','I7'],
+  D5: ['I4','I5','I6','I7','I8','D3','D7'],
+  D6: ['I2','I8'],
+  D7: ['I3','I6','I8'],
+  I1: ['I2'],
+  I3: ['I6'],
+  I4: ['I5'],
+  I5: ['I6','I7'],
+  I6: ['I7'],
+  I7: ['I2'],
+  I8: ['I2'],
+};
+
+// 정답으로 연결되었을 때 보여줄 "왜 그런가?" 보충 설명
+const EDGE_EXPLANATIONS = {
+  'N1>N2': '화석 연료를 태우면 그 즉시 이산화탄소가 대기로 배출되기 때문이에요.',
+  'N2>S1': '대기 중 이산화탄소(온실가스) 농도가 높아지면 지구가 내보내는 열을 더 많이 가둬 평균 기온이 올라가요.',
+  'S1>S2': '기온이 오르면 공기 분자가 더 많은 수증기를 머금을 수 있어서 포화수증기량이 늘어나요.',
+  'S1>S4': '지구 전체가 더워지는 동안 북극은 얼음이 사라지며 반사되던 태양열까지 흡수해, 기온이 더 빠르게 올라요(북극 증폭).',
+  'S1>S7': '바닷물 온도가 오르면 고온다습한 북태평양 기단의 세력이 평년보다 강해져요.',
+  'S1>D1': '기온 상승으로 해수가 열팽창하고 빙하·만년설이 녹아 해수면이 높아져요.',
+  'S1>D7': '기온이 오르고 건조한 날이 늘어나면서 산불이 발생하기 쉬운 조건이 만들어져요.',
+  'S2>S3': '공기가 머금은 수증기가 많을수록 상승할 때 응결로 방출되는 에너지가 커져, 단열팽창(구름 발달)이 더 격렬해져요.',
+  'S2>D2': '대기에 수증기가 가득 차 있으면 한 번에 쏟아지는 비의 양이 극단적으로 많아져요.',
+  'S2>D3': '수증기가 일부 지역에 몰리는 대신 다른 지역은 오히려 더 건조해져 가뭄이 심해져요.',
+  'S3>D2': '강하게 발달한 적란운(소나기구름)은 짧은 시간에 많은 비를 퍼붓는 폭우로 이어져요.',
+  'S4>S5': '북극 기온이 빠르게 오르면 원래 크게 벌어져 있던 북극-중위도 사이의 기온 차이가 줄어들어요.',
+  'S5>S6': '기온 차이가 줄면 그 차이로 만들어지던 제트기류의 힘이 약해져서 흐름이 느슨해져요.',
+  'S6>D4': '약해진 제트기류가 구불거리며 북극의 찬 공기가 중위도까지 내려와 이상 한파를 일으켜요.',
+  'S6>D5': '느슨해진 제트기류가 고기압을 한곳에 오래 머물게 해서 폭염이 길어져요.',
+  'S7>S8': '북태평양 기단의 세력이 강해지면 장마전선(정체전선)이 쉽게 밀려나지 못하고 한곳에 오래 머물러요.',
+  'S7>D5': '강해진 북태평양 기단이 무더운 공기를 오래 공급해서 폭염이 두 달 가까이 이어져요.',
+  'S7>D6': '기단들의 세력 균형이 깨지면서 계절을 가르던 경계가 흐려져 봄·가을이 짧아져요.',
+  'S8>D2': '정체전선이 한곳에 오래 머무르며 같은 지역에 비를 계속 퍼부어 물폭탄(집중호우)이 돼요.',
+  'D1>I1': '바닷물이 농경지로 밀려들면 염분 때문에 작물을 키울 수 없게 돼요.',
+  'D1>I3': '해수면이 높아지면 해안 저지대 주택이 잠기는 피해가 생겨요.',
+  'D2>I1': '갑작스런 폭우로 농경지가 침수되어 작물이 피해를 입어요.',
+  'D2>I3': '폭우로 하천이 범람하면 저지대·반지하 주택이 침수돼요.',
+  'D3>I1': '가뭄으로 땅이 마르면 작물이 자라지 못해 농경지 피해로 이어져요.',
+  'D3>I8': '물 부족으로 식물이 말라죽고 동물이 살던 환경이 무너져요.',
+  'D4>I4': '갑작스런 추위에 난방 수요가 한꺼번에 폭증해요.',
+  'D4>I6': '혹독한 한파는 특히 노약자에게 동사 등 생명을 위협하는 위험이 돼요.',
+  'D5>I4': '긴 폭염이 이어지는 동안 냉방 수요가 폭증해요.',
+  'D5>I6': '장기간 이어지는 폭염은 온열질환으로 생명을 위협해요.',
+  'D5>I7': '뜨거운 날씨 속 야외 작업은 노동자의 건강을 해치고 작업 효율을 떨어뜨려요.',
+  'D5>D7': '덥고 건조한 날이 길어지면 산불이 발생·확산하기 쉬운 조건이 만들어져요.',
+  'D7>I8': '산불로 숲이 사라지면 그곳에 살던 동식물이 서식지를 잃어요.',
+  'I1>I2': '농경지 피해가 누적되면 전 세계 곡물 생산량이 줄어 식량 가격이 올라요.',
+  'I4>I5': '에너지 수요가 발전·공급 능력을 넘어서면 정전이 발생할 위험이 커져요.',
+  'I5>I6': '정전으로 냉방·난방 기기가 멈추면 특히 취약한 사람들의 생명이 위협받아요.',
+
+  // ↓↓↓ 대격변 업데이트로 추가된 연결들
+  'S1>S3': '기온이 오르면 대기가 더 불안정해져서, 공기가 상승할 때 단열팽창으로 생기는 구름이 더 격렬하게 발달해요.',
+  'S1>S6': '지구가 더워지는 속도가 지역마다 달라서(특히 극지방이 더 빠르게 더워짐) 제트기류를 만드는 온도 차이 자체가 약해져요.',
+  'S1>S8': '바다와 대기가 더워지면 정체전선을 미는 힘과 막는 힘의 균형이 깨져서 전선이 한곳에 더 오래 머물러요.',
+  'S1>D2': '기온이 오르면 대기가 머금는 수증기량 자체가 늘어나서, 비가 한 번에 쏟아지는 양도 전반적으로 늘어나요.',
+  'S1>D3': '기온이 오르면 토양과 식물의 수분이 더 빨리 증발해서, 비가 줄어든 지역은 가뭄이 더 심해져요.',
+  'S1>D4': '온난화로 북극과 중위도의 균형이 깨지면서, 찬 공기가 갑자기 남쪽으로 쏠려 내려오는 이상 한파가 생겨요.',
+  'S1>D5': '평균 기온 자체가 오른 상태에서 무더운 날이 시작되니, 폭염이 더 자주, 더 오래 이어져요.',
+  'S1>D6': '기온 상승으로 계절을 가르던 기단들의 힘겨루기가 흐트러지면서 사계절의 경계가 흐려져요.',
+  'S2>S7': '대기 중 수증기가 많아지면 고온다습한 북태평양 기단이 더 강하고 짙게 발달해요.',
+  'S2>S8': '수증기를 잔뜬 머금은 두 기단이 만나면 정체전선이 더 강하게 형성되고 쉽게 풀리지 않아요.',
+  'S3>D7': '격렬하게 발달한 적란운은 강한 낙뢰(번개)를 동반하는데, 이 번개가 건조한 숲에 떨어지면 산불을 일으킬 수 있어요.',
+  'S4>D1': '북극 기온이 급상승하면 빙하와 해빙이 빠르게 녹아 바닷물의 양 자체가 늘어나 해수면이 높아져요.',
+  'S4>D7': '북극 기온이 오르면 평소 얼어있던 툰드라·삼림지대가 마르면서 대형 산불(아크틱 산불)이 발생하기 쉬워져요.',
+  'S6>D2': '약해진 제트기류가 한곳에 비구름을 오래 가둬두면서, 그 지역에 정체된 폭우가 쏟아져요.',
+  'S6>D6': '구불거리는 제트기류 때문에 찬 공기와 더운 공기가 예측하기 어렵게 뒤섞여 계절의 경계가 무너져요.',
+  'S7>D2': '북태평양 기단이 강해지면 그 자체로 많은 수증기를 끌고 와 폭우를 직접 퍼붓기도 해요.',
+  'S8>D3': '정체전선이 한 지역에만 머무는 동안, 전선이 닿지 않는 다른 지역은 비를 거의 받지 못해 가뭄이 심해져요.',
+  'D1>I8': '해수면 상승으로 해안 습지나 산호초 같은 서식지가 물에 잠기면서 그곳에 살던 생물들이 터전을 잃어요.',
+  'D2>I6': '폭우로 갑작스런 홍수가 나면 미처 대피하지 못한 사람들이 휩쓸려 생명을 잃는 사고가 발생해요.',
+  'D2>I7': '폭우 속에서는 야외 작업이 위험해지고 작업 자체가 중단되어 노동자의 안전과 생산성에 직접 피해를 줘요.',
+  'D3>I2': '가뭄으로 농작물이 말라죽으면 곡물 수확량이 줄어 식량 가격이 곧바로 오르게 돼요.',
+  'D3>D7': '가뭄으로 땅과 식물이 바싹 마르면 작은 불씨에도 큰불로 번지기 쉬운 산불 조건이 만들어져요.',
+  'D4>I5': '갑작스런 한파로 난방 수요가 폭증하면 전력망이 견디지 못해 대규모 정전이 발생할 수 있어요(실제로 미국 텍사스 한파 정전 사례가 있었어요).',
+  'D4>I7': '한파 속 야외 작업은 동상이나 저체온증 위험이 커서 작업이 중단되거나 노동자의 건강이 크게 위협받아요.',
+  'D5>I5': '폭염 속 냉방 수요가 폭증하면 전력 공급이 이를 따라가지 못해 정전이 발생할 수 있어요.',
+  'D5>I8': '계속되는 폭염은 동식물에게도 열 스트레스를 줘서, 서식지를 잃거나 개체 수가 줄어드는 피해로 이어져요.',
+  'D5>D3': '폭염이 오래 지속되면 땅과 저수지의 수분이 빠르게 말라, 가뭄이 더 심해져요.',
+  'D6>I2': '계절의 경계가 무너지면 농작물을 심고 거두는 시기를 예측하기 어려워져 수확량이 줄고 식량 가격이 흔들려요.',
+  'D6>I8': '계절이 뒤바뀌면 철새의 이동이나 동식물의 번식 시기가 엇갈려 생태계 균형이 무너져요.',
+  'D7>I3': '산불이 마을과 집까지 번지면 주거지가 불에 타 없어지고 이재민이 발생해요.',
+  'D7>I6': '산불의 연기와 미세먼지를 들이마시면 호흡기 질환 등으로 생명을 위협받을 수 있어요.',
+  'I3>I6': '집을 잃고 안전한 곳 없이 지내야 하는 이재민은 더위·추위·질병에 그대로 노출되어 생명이 위험해져요.',
+  'I5>I7': '정전으로 공장 가동이나 작업 장비가 멈추면 노동자들의 작업이 중단되고 생산성이 크게 떨어져요.',
+  'I6>I7': '온열질환·사망으로 일할 수 있는 사람이 줄어들면, 남은 노동자들의 부담이 커지고 현장의 생산성은 더 떨어져요.',
+  'I7>I2': '노동자들의 피해로 농업·물류 등의 생산성이 떨어지면 결국 식량 공급에도 차질이 생겨 물가가 올라요.',
+  'I8>I2': '어업 자원이나 꽃가루를 옮기는 곤충 같은 생태계가 무너지면 식량 생산 자체가 줄어들어요.',
+};
+
+const NODE_POSSIBLE = {};
+NODES.forEach(n => NODE_POSSIBLE[n.id] = 0);
+Object.keys(EDGES).forEach(from => {
+  EDGES[from].forEach(to => {
+    NODE_POSSIBLE[from]++;
+    NODE_POSSIBLE[to]++;
+  });
+});
+
+function countNodeConnections(nodeId) {
+  const made = edgesMade.filter(e => e.from === nodeId || e.to === nodeId).length;
+  return { made: made, possible: NODE_POSSIBLE[nodeId] || 0 };
+}
+
+// ===================== 상태 =====================
+const placed = {};      // id -> { x, y, el }
+const edgesMade = [];    // { from, to, pathEl }
+let score = 0;
+let maxChainNodes = 1;
+const celebratedTiers = new Set();
+const TOTAL_EDGES = 71;
+const MAX_CHAIN = 13;
+const MAX_SCORE = 2510;
+let maxScoreCelebrated = false;
+
+document.getElementById('arrow-opacity').addEventListener('input', (e) => {
+  document.documentElement.style.setProperty('--arrow-opacity', e.target.value / 100);
+});
+
+function updateProgressDisplay() {
+  document.getElementById('edge-count').textContent = edgesMade.length;
+  document.getElementById('chain-progress').textContent = maxChainNodes;
+  if (!maxScoreCelebrated && edgesMade.length >= TOTAL_EDGES && maxChainNodes >= MAX_CHAIN) {
+    maxScoreCelebrated = true;
+    showToast('🎉 축하합니다! 가능한 모든 인과관계와 최장 사슬을 모두 찾아 최고 점수에 도달했어요!', 'good');
+    celebrate(MAX_CHAIN);
+  }
+}
+
+const paletteEl = document.getElementById('palette');
+const canvasEl = document.getElementById('canvas');
+const svgEl = document.getElementById('lines');
+const toastEl = document.getElementById('toast');
+const cbEl = document.getElementById('celebrate-banner');
+const tooltipEl = document.getElementById('node-tooltip');
+
+function nodeLabel(node) {
+  return (node.emoji ? node.emoji + ' ' : '') + node.label;
+}
+
+// ===================== 툴팁 =====================
+function showTooltip(html, x, y) {
+  tooltipEl.innerHTML = html;
+  tooltipEl.classList.add('show');
+  positionTooltip(x, y);
+}
+function positionTooltip(x, y) {
+  const pad = 16;
+  let left = x + pad, top = y + pad;
+  const rect = tooltipEl.getBoundingClientRect();
+  if (left + rect.width > window.innerWidth - 10) left = x - rect.width - pad;
+  if (top + rect.height > window.innerHeight - 10) top = y - rect.height - pad;
+  tooltipEl.style.left = left + 'px';
+  tooltipEl.style.top = top + 'px';
+}
+function hideTooltip() {
+  tooltipEl.classList.remove('show');
+}
+
+function attachNodeTooltip(el, node) {
+  el.addEventListener('pointerenter', e => {
+    const conn = countNodeConnections(node.id);
+    showTooltip('<div class="tt-title">' + nodeLabel(node) + '</div>' + node.desc +
+      '<div class="tt-why">🔗 연결된 인과관계: <b>' + conn.made + '</b>개</div>', e.clientX, e.clientY);
+  });
+  el.addEventListener('pointermove', e => positionTooltip(e.clientX, e.clientY));
+  el.addEventListener('pointerleave', hideTooltip);
+}
+
+function attachEdgeTooltip(el, fromId, toId) {
+  const why = EDGE_EXPLANATIONS[fromId + '>' + toId] || '두 현상은 서로 영향을 주고받는 인과관계예요.';
+  const html = '<div class="tt-title">' + nodeLabel(NODE_BY_ID[fromId]) + ' ➡️ ' + nodeLabel(NODE_BY_ID[toId]) + '</div>' +
+    '<div class="tt-why"><b>왜 그럴까요?</b><br>' + why + '</div>';
+  el.addEventListener('pointerenter', e => showTooltip(html, e.clientX, e.clientY));
+  el.addEventListener('pointermove', e => positionTooltip(e.clientX, e.clientY));
+  el.addEventListener('pointerleave', hideTooltip);
+}
+
+// ===================== 팔레트 렌더 =====================
+function renderPalette() {
+  const groups = { n: [], s: [], d: [], i: [] };
+  NODES.forEach(n => groups[n.stage].push(n));
+
+  Object.keys(groups).forEach(stage => {
+    const wrap = document.createElement('div');
+    wrap.className = 'stage-group';
+    const title = document.createElement('div');
+    title.className = 'stage-title';
+    title.textContent = STAGE_LABEL[stage];
+    wrap.appendChild(title);
+
+    groups[stage].forEach(node => {
+      const card = document.createElement('div');
+      card.className = 'card ' + stage;
+      card.dataset.id = node.id;
+      card.textContent = nodeLabel(node);
+      card.id = 'palette-' + node.id;
+      card.addEventListener('pointerdown', e => startPaletteDrag(e, node, card));
+      card.addEventListener('click', () => {
+        if (card.dataset.dragged === '1') return;
+        copyNodeLabel(node);
+      });
+      attachNodeTooltip(card, node);
+      wrap.appendChild(card);
+    });
+    paletteEl.appendChild(wrap);
+  });
+}
+
+// ===================== 팔레트 -> 캔버스 드래그 =====================
+let ghostEl = null;
+function startPaletteDrag(e, node, sourceCard) {
+  if (placed[node.id]) return;
+  e.preventDefault();
+  if (sourceCard) sourceCard.dataset.dragged = '0';
+
+  const startX = e.clientX, startY = e.clientY;
+  ghostEl = document.createElement('div');
+  ghostEl.id = 'drag-ghost';
+  ghostEl.className = 'card ' + node.stage;
+  ghostEl.textContent = nodeLabel(node);
+  ghostEl.style.left = e.clientX + 'px';
+  ghostEl.style.top = e.clientY + 'px';
+  document.body.appendChild(ghostEl);
+
+  function move(ev) {
+    if (sourceCard && (Math.abs(ev.clientX - startX) > 4 || Math.abs(ev.clientY - startY) > 4)) {
+      sourceCard.dataset.dragged = '1';
+    }
+    ghostEl.style.left = ev.clientX + 'px';
+    ghostEl.style.top = ev.clientY + 'px';
+  }
+  function up(ev) {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    ghostEl.remove();
+    ghostEl = null;
+
+    const wrapRect = document.getElementById('canvas-wrap').getBoundingClientRect();
+    if (ev.clientX > wrapRect.left && ev.clientX < wrapRect.right && ev.clientY > wrapRect.top && ev.clientY < wrapRect.bottom) {
+      const canvasRect = canvasEl.getBoundingClientRect();
+      const x = ev.clientX - canvasRect.left - 84;
+      const y = ev.clientY - canvasRect.top - 24;
+      placeNode(node, Math.max(0, x), Math.max(0, y));
+    }
+  }
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+
+// ===================== 카드 배치 =====================
+function placeNode(node, x, y) {
+  if (placed[node.id]) return;
+
+  const card = document.createElement('div');
+  card.className = 'card placed ' + node.stage;
+  card.dataset.id = node.id;
+  card.textContent = nodeLabel(node);
+  card.style.left = x + 'px';
+  card.style.top = y + 'px';
+
+  const handle = document.createElement('div');
+  handle.className = 'handle';
+  handle.title = '드래그해서 다른 카드와 연결';
+  card.appendChild(handle);
+
+  canvasEl.appendChild(card);
+  placed[node.id] = { x, y, el: card };
+
+  const paletteCard = document.getElementById('palette-' + node.id);
+  if (paletteCard) paletteCard.classList.add('used');
+
+  card.addEventListener('pointerdown', e => {
+    if (e.target === handle) return;
+    if (e.ctrlKey || e.shiftKey || e.metaKey) { e.preventDefault(); e.stopPropagation(); toggleSelect(node.id); return; }
+    startCardDrag(e, node.id, card);
+  });
+  handle.addEventListener('pointerdown', e => startConnectionDrag(e, node.id));
+  card.addEventListener('click', e => {
+    if (e.target === handle || card.dataset.dragged === '1') return;
+    if (selectedIds.size > 1) return;
+    copyNodeLabel(node, e.clientX, e.clientY);
+  });
+  attachNodeTooltip(card, node);
+
+  let hoverState = null;
+  card.addEventListener('pointerenter', () => { hoverState = startHoverHighlight(node.id); });
+  card.addEventListener('pointerleave', () => { stopHoverHighlight(hoverState); hoverState = null; });
+}
+
+// ===================== 호버 강조(커졌다 작아졌다) =====================
+function startHoverHighlight(nodeId) {
+  const connectedEdges = edgesMade.filter(ed => ed.from === nodeId || ed.to === nodeId);
+  const neighborIds = new Set([nodeId]);
+  connectedEdges.forEach(ed => { neighborIds.add(ed.from); neighborIds.add(ed.to); });
+  const cardsToPulse = Array.from(neighborIds).map(id => placed[id] && placed[id].el).filter(Boolean);
+
+  const cardOrig = cardsToPulse.map(c => ({ el: c, transform: c.style.transform, transition: c.style.transition, zIndex: c.style.zIndex }));
+  const edgeOrig = connectedEdges.map(ed => ({ ed: ed, strokeWidth: ed.el.style.strokeWidth, filter: ed.el.style.filter, transition: ed.el.style.transition }));
+
+  cardsToPulse.forEach(c => { c.style.transition = 'transform .4s ease-in-out'; c.style.zIndex = 6; });
+  connectedEdges.forEach(ed => { ed.el.style.transition = 'stroke-width .4s ease-in-out, filter .4s ease-in-out'; });
+
+  let big = false;
+  function tick() {
+    big = !big;
+    cardsToPulse.forEach(c => { c.style.transform = big ? 'scale(1.15)' : 'scale(1)'; });
+    connectedEdges.forEach(ed => {
+      ed.el.style.strokeWidth = big ? '9' : '4';
+      ed.el.style.filter = big
+        ? 'drop-shadow(0 0 16px #fff) drop-shadow(0 0 10px #38e8e0)'
+        : (ed.el.classList.contains('longest-chain') ? 'drop-shadow(0 0 10px #ff9100) drop-shadow(0 0 4px #fff)' : 'drop-shadow(0 0 6px #34d399)');
+    });
+  }
+  tick();
+  const intervalId = setInterval(tick, 420);
+  return { intervalId, cardOrig, edgeOrig };
+}
+
+function stopHoverHighlight(state) {
+  if (!state) return;
+  clearInterval(state.intervalId);
+  state.cardOrig.forEach(o => { o.el.style.transform = o.transform; o.el.style.transition = o.transition; o.el.style.zIndex = o.zIndex; });
+  state.edgeOrig.forEach(o => { o.ed.el.style.strokeWidth = o.strokeWidth; o.ed.el.style.filter = o.filter; o.ed.el.style.transition = o.transition; });
+}
+
+// ===================== 다중 선택 =====================
+const selectedIds = new Set();
+
+function toggleSelect(id) {
+  const el = placed[id].el;
+  if (selectedIds.has(id)) { selectedIds.delete(id); el.classList.remove('selected'); }
+  else { selectedIds.add(id); el.classList.add('selected'); }
+}
+function clearSelection() {
+  selectedIds.forEach(id => { if (placed[id]) placed[id].el.classList.remove('selected'); });
+  selectedIds.clear();
+}
+function selectIds(ids) {
+  clearSelection();
+  ids.forEach(id => { selectedIds.add(id); placed[id].el.classList.add('selected'); });
+}
+
+const selectBoxEl = document.getElementById('select-box');
+canvasEl.addEventListener('pointerdown', e => {
+  if (e.target !== canvasEl) return;
+  if (!(e.ctrlKey || e.shiftKey || e.metaKey)) clearSelection();
+  const canvasRect = canvasEl.getBoundingClientRect();
+  const startX = e.clientX - canvasRect.left, startY = e.clientY - canvasRect.top;
+  selectBoxEl.style.display = 'block';
+  selectBoxEl.style.left = startX + 'px'; selectBoxEl.style.top = startY + 'px';
+  selectBoxEl.style.width = '0px'; selectBoxEl.style.height = '0px';
+
+  function move(ev) {
+    const curX = ev.clientX - canvasRect.left, curY = ev.clientY - canvasRect.top;
+    const x = Math.min(startX, curX), y = Math.min(startY, curY);
+    const w = Math.abs(curX - startX), h = Math.abs(curY - startY);
+    selectBoxEl.style.left = x + 'px'; selectBoxEl.style.top = y + 'px';
+    selectBoxEl.style.width = w + 'px'; selectBoxEl.style.height = h + 'px';
+
+    Object.keys(placed).forEach(id => {
+      const p = placed[id];
+      const cw = p.el.offsetWidth, ch = p.el.offsetHeight;
+      const overlaps = p.x < x + w && p.x + cw > x && p.y < y + h && p.y + ch > y;
+      if (overlaps) { if (!selectedIds.has(id)) { selectedIds.add(id); p.el.classList.add('selected'); } }
+    });
+  }
+  function up() {
+    selectBoxEl.style.display = 'none';
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+  }
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+});
+
+// ===================== 클립보드 복사 =====================
+function copyNodeLabel(node, x, y) {
+  const text = nodeLabel(node);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+  showToast('📋 "' + text + '" 복사 완료!', 'good');
+}
+
+// ===================== 배치된 카드 재배치 =====================
+function startCardDrag(e, id, card) {
+  e.preventDefault();
+  e.stopPropagation();
+  const startX = e.clientX, startY = e.clientY;
+  card.dataset.dragged = '0';
+
+  const groupIds = selectedIds.has(id) && selectedIds.size > 1 ? Array.from(selectedIds) : [id];
+  const origPos = {};
+  groupIds.forEach(gid => { origPos[gid] = { x: placed[gid].x, y: placed[gid].y }; });
+
+  function move(ev) {
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) card.dataset.dragged = '1';
+    groupIds.forEach(gid => {
+      const p = placed[gid];
+      p.x = Math.max(0, origPos[gid].x + dx);
+      p.y = Math.max(0, origPos[gid].y + dy);
+      p.el.style.left = p.x + 'px';
+      p.el.style.top = p.y + 'px';
+      refreshLinesFor(gid);
+    });
+  }
+  function up() {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+  }
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+
+// ===================== 연결선 드래그 =====================
+let tempLine = null;
+function startConnectionDrag(e, fromId) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  tempLine.setAttribute('stroke', '#38e8e0');
+  tempLine.setAttribute('stroke-width', '3');
+  tempLine.setAttribute('stroke-dasharray', '6 5');
+  tempLine.setAttribute('marker-end', 'url(#arrow-temp)');
+  svgEl.appendChild(tempLine);
+
+  const fromCenter = getEdgePoint(fromId);
+
+  function move(ev) {
+    const canvasRect = canvasEl.getBoundingClientRect();
+    tempLine.setAttribute('x1', fromCenter.x);
+    tempLine.setAttribute('y1', fromCenter.y);
+    tempLine.setAttribute('x2', ev.clientX - canvasRect.left);
+    tempLine.setAttribute('y2', ev.clientY - canvasRect.top);
+  }
+  function up(ev) {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    if (tempLine) { tempLine.remove(); tempLine = null; }
+
+    const target = document.elementFromPoint(ev.clientX, ev.clientY);
+    const targetCard = target ? target.closest('.card.placed') : null;
+    if (targetCard) {
+      const toId = targetCard.dataset.id;
+      if (toId !== fromId) attemptConnect(fromId, toId, targetCard);
+    }
+  }
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+
+// ===================== 좌표 계산 =====================
+function getEdgePoint(id, side) {
+  const p = placed[id];
+  const rect = p.el.getBoundingClientRect();
+  const canvasRect = canvasEl.getBoundingClientRect();
+  const top = rect.top - canvasRect.top;
+  const left = rect.left - canvasRect.left;
+  if (side === 'left') {
+    return { x: left, y: top + rect.height / 2 };
+  }
+  return { x: left + rect.width, y: top + rect.height / 2 }; // right (handle side / default)
+}
+
+// ===================== 연결 검증 =====================
+function attemptConnect(fromId, toId, targetCardEl) {
+  const already = edgesMade.some(ed => ed.from === fromId && ed.to === toId);
+  if (already) { showToast('이미 연결된 인과관계예요.', 'bad'); return; }
+
+  const valid = (EDGES[fromId] || []).includes(toId);
+
+  if (valid) {
+    // 클릭으로 끊을 수 있도록 보이지 않는 굵은 히트 영역을 먼저 깔아둠
+    const hit = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    hit.setAttribute('stroke', 'transparent');
+    hit.setAttribute('stroke-width', '18');
+    hit.style.pointerEvents = 'stroke';
+    hit.style.cursor = 'pointer';
+    svgEl.appendChild(hit);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    path.setAttribute('class', 'edge-line good');
+    path.setAttribute('stroke', '#34d399');
+    path.setAttribute('stroke-width', '4');
+    path.setAttribute('stroke-dasharray', '10 8');
+    path.setAttribute('marker-end', 'url(#arrow-green)');
+    path.style.filter = 'drop-shadow(0 0 6px #34d399)';
+    path.style.animation = 'dashflow 1s linear infinite';
+    path.style.pointerEvents = 'stroke';
+    path.style.cursor = 'pointer';
+    svgEl.appendChild(path);
+
+    const edgeRecord = { from: fromId, to: toId, el: path, hitEl: hit };
+    edgesMade.push(edgeRecord);
+    updateLinePosition(path, fromId, toId);
+    updateLinePosition(hit, fromId, toId);
+
+    const removeThis = () => removeEdge(edgeRecord);
+    path.addEventListener('click', removeThis);
+    hit.addEventListener('click', removeThis);
+    attachEdgeTooltip(hit, fromId, toId);
+    attachEdgeTooltip(path, fromId, toId);
+
+    score += 10;
+    document.getElementById('score-val').textContent = score;
+    const why = EDGE_EXPLANATIONS[fromId + '>' + toId] || '';
+    showToast('⚡ 올바른 인과관계! +10점 — ' + why + ' (선을 클릭하면 끊을 수 있어요)', 'good');
+    recomputeLongestChain();
+    updateProgressDisplay();
+  } else {
+    const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    tmp.setAttribute('stroke', '#f87171');
+    tmp.setAttribute('stroke-width', '4');
+    tmp.setAttribute('marker-end', 'url(#arrow-red)');
+    tmp.style.filter = 'drop-shadow(0 0 6px #f87171)';
+    svgEl.appendChild(tmp);
+    const a = getEdgePoint(fromId), b = getCardCenter(toId);
+    tmp.setAttribute('x1', a.x); tmp.setAttribute('y1', a.y);
+    tmp.setAttribute('x2', b.x); tmp.setAttribute('y2', b.y);
+
+    targetCardEl.classList.add('shake');
+    setTimeout(() => targetCardEl.classList.remove('shake'), 400);
+    setTimeout(() => tmp.remove(), 650);
+
+    showToast('❌ 이건 인과관계가 아니에요. 다시 생각해보세요!', 'bad');
+  }
+}
+
+// ===================== 연결 끊기 =====================
+function removeEdge(edgeRecord) {
+  const idx = edgesMade.indexOf(edgeRecord);
+  if (idx === -1) return;
+  edgesMade.splice(idx, 1);
+  edgeRecord.el.remove();
+  edgeRecord.hitEl.remove();
+
+  score = Math.max(0, score - 10);
+  document.getElementById('score-val').textContent = score;
+  showToast('🔌 연결을 끊었습니다. -10점', 'bad');
+  recomputeLongestChain();
+  updateProgressDisplay();
+}
+
+function getCardCenter(id) {
+  const p = placed[id];
+  const rect = p.el.getBoundingClientRect();
+  const canvasRect = canvasEl.getBoundingClientRect();
+  return {
+    x: rect.left - canvasRect.left + rect.width / 2,
+    y: rect.top - canvasRect.top + rect.height / 2
+  };
+}
+
+function updateLinePosition(line, fromId, toId) {
+  const a = getEdgePoint(fromId, 'right');
+  const b = getEdgePoint(toId, 'left');
+  line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
+  line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
+}
+
+function refreshLinesFor(id) {
+  edgesMade.forEach(ed => {
+    if (ed.from === id || ed.to === id) {
+      updateLinePosition(ed.el, ed.from, ed.to);
+      updateLinePosition(ed.hitEl, ed.from, ed.to);
+    }
+  });
+}
+
+// ===================== 최장 사슬 계산 =====================
+function setEdgeHighlight(ed, on) {
+  if (on) {
+    ed.el.setAttribute('stroke', '#ff9100');
+    ed.el.setAttribute('marker-end', 'url(#arrow-orange)');
+    ed.el.style.filter = 'drop-shadow(0 0 10px #ff9100) drop-shadow(0 0 4px #fff)';
+    ed.el.classList.add('longest-chain');
+  } else {
+    ed.el.setAttribute('stroke', '#34d399');
+    ed.el.setAttribute('marker-end', 'url(#arrow-green)');
+    ed.el.style.filter = 'drop-shadow(0 0 6px #34d399)';
+    ed.el.classList.remove('longest-chain');
+  }
+}
+
+function recomputeLongestChain() {
+  const adj = {};
+  edgesMade.forEach(ed => {
+    if (!adj[ed.from]) adj[ed.from] = [];
+    adj[ed.from].push(ed.to);
+  });
+
+  const memo = {};
+  const nextBest = {};
+  function longestFrom(id, visiting) {
+    if (memo[id] !== undefined) return memo[id];
+    if (visiting.has(id)) return 1; // 순환 방지 안전장치
+    visiting.add(id);
+    let best = 1, bestNext = null;
+    (adj[id] || []).forEach(next => {
+      const v = 1 + longestFrom(next, visiting);
+      if (v > best) { best = v; bestNext = next; }
+    });
+    visiting.delete(id);
+    memo[id] = best;
+    nextBest[id] = bestNext;
+    return best;
+  }
+
+  let overall = 1, bestStart = null;
+  Object.keys(placed).forEach(id => {
+    const v = longestFrom(id, new Set());
+    if (v > overall) { overall = v; bestStart = id; }
+  });
+
+  const pathEdges = new Set();
+  if (bestStart) {
+    let cur = bestStart;
+    while (nextBest[cur]) {
+      pathEdges.add(cur + '>' + nextBest[cur]);
+      cur = nextBest[cur];
+    }
+  }
+  edgesMade.forEach(ed => {
+    setEdgeHighlight(ed, pathEdges.has(ed.from + '>' + ed.to));
+  });
+
+  document.getElementById('chain-count').textContent = overall;
+
+  if (overall > maxChainNodes) {
+    maxChainNodes = overall;
+    score += 20 * overall;
+    document.getElementById('score-val').textContent = score;
+
+    if (overall >= 4 && !celebratedTiers.has(overall)) {
+      celebratedTiers.add(overall);
+      celebrate(overall);
+    }
+  }
+}
+
+// ===================== 이펙트 =====================
+function showToast(msg, type) {
+  toastEl.textContent = msg;
+  toastEl.className = 'show ' + type;
+  const duration = msg.length > 30 ? 3200 : 1400;
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => { toastEl.className = type; }, duration);
+}
+
+function celebrate(n) {
+  document.getElementById('cb-title').textContent = '🎉 인과 사슬 ' + n + '단계 완성!';
+  document.getElementById('cb-sub').textContent = '근본 원인부터 사회적 영향까지, 멋지게 연결했어요!';
+  cbEl.classList.add('show');
+  setTimeout(() => cbEl.classList.remove('show'), 1800);
+  spawnConfetti();
+}
+
+function spawnConfetti() {
+  const colors = ['#38e8e0', '#facc15', '#f87171', '#a78bfa', '#34d399'];
+  for (let i = 0; i < 40; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.animationDuration = (1 + Math.random() * 1) + 's';
+    c.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 2200);
+  }
+}
+
+// ===================== 초기화 버튼 =====================
+document.getElementById('reset-btn').addEventListener('click', () => {
+  if (!confirm('정말 처음부터 다시 시작할까요?')) return;
+  location.reload();
+});
+
+// ===================== 동적 keyframes (dash flow) =====================
+const styleEl = document.createElement('style');
+styleEl.textContent = `
+@keyframes dashflow { to { stroke-dashoffset: -36; } }
+`;
+document.head.appendChild(styleEl);
+
+renderPalette();
+
+// ===================== 정답 자동 배치 =====================
+const ANSWER_POSITIONS = {
+  N1: [20, 20],   N2: [20, 90],   S1: [20, 180],
+  S4: [330, 330], S5: [330, 390], S6: [330, 450],
+  S2: [330, 510], S3: [330, 570], S7: [330, 630], S8: [330, 690],
+  D1: [680, 250], D2: [680, 300], D6: [680, 350], D5: [680, 400],
+  D3: [680, 460], D7: [680, 510], D4: [680, 560],
+  I3: [1050, 260], I6: [1050, 310], I7: [1050, 360], I2: [1050, 470],
+  I1: [1050, 520], I5: [1050, 570], I4: [1050, 620], I8: [1050, 670],
+};
+
+function setupAnswer() {
+  const origToast = showToast, origCelebrate = celebrate;
+  showToast = function () {};
+  celebrate = function () {};
+
+  NODES.forEach(n => {
+    const pos = ANSWER_POSITIONS[n.id];
+    placeNode(n, pos[0], pos[1]);
+  });
+  Object.keys(EDGES).forEach(from => {
+    EDGES[from].forEach(to => attemptConnect(from, to, placed[to].el));
+  });
+
+  showToast = origToast;
+  celebrate = origCelebrate;
+  showToast('🏆 정답 배치 완료! 71개 인과관계와 13단계 최장 사슬을 모두 확인해보세요.', 'good');
+}
+setupAnswer();
+</script>
+</body>
+</html>
