@@ -2,6 +2,7 @@
 var SHEET_ID = '1xoVrbYWU1BwfoJwN2e0CBXlDKE4zt_upD4OtqasnV3I'; // 제출 데이터를 쌓을 스프레드시트 ID
 var SHEET_NAME = '제출현황';
 var LEARNING_SHEET_NAME = '제출현황2'; // learning.html(친구 발표 듣기) 제출 기록
+var VALUE_SHEET_NAME = '인과 제출 및 가치관점'; // student_value.html 제출 기록
 var PASSWORD_SHEET_ID = '1JcgoufQUypJR6ItEBGWR7xVE-e1vBqXqfYddkEgXlJg'; // student.html 접속 시 본인 확인용 비밀번호가 있는 스프레드시트 (학번/비밀번호 탭)
 
 // 분과별 정답 (여러 정답 허용: 배열로 등록, 공백/대소문자 무시 비교)
@@ -100,6 +101,8 @@ function doGet(e) {
     result = checkLearningStatus(e.parameter.studentId, e.parameter.studentName);
   } else if (action === 'getMySubmissions') {
     result = getMySubmissions(e.parameter.studentId, e.parameter.studentName, e.parameter.password);
+  } else if (action === 'checkValueSubmitted') {
+    result = checkValueAlreadySubmitted(e.parameter.studentId, e.parameter.studentName);
   } else {
     result = { error: 'unknown action' };
   }
@@ -114,6 +117,8 @@ function doPost(e) {
     result = submitWorksheet(body.payload);
   } else if (body.action === 'submitLearning') {
     result = submitLearningWorksheet(body.payload);
+  } else if (body.action === 'submitValue') {
+    result = submitValuePerspective(body.payload);
   } else {
     result = { error: 'unknown action' };
   }
@@ -377,4 +382,68 @@ function getMySubmissions(studentId, studentName, password) {
   }
 
   return { valid: true, own: own, learning: learning };
+}
+
+function getValueSheet_() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(VALUE_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(VALUE_SHEET_NAME);
+    sheet.appendRow(['제출시각', '학번', '이름', '가장 긴 인과 사슬', '평소 중요하게 생각하는 가치', '선택한 관점', '관점을 선택한 이유']);
+  }
+  return sheet;
+}
+
+// 클라이언트(student_value.html)에서 호출: 학번/이름 확인 + 이미 제출했는지 확인
+function checkValueAlreadySubmitted(studentId, studentName) {
+  if (!verifyStudent_(studentId, studentName)) {
+    return { valid: false, submitted: false, message: '학번 또는 이름이 명단과 일치하지 않습니다. 다시 확인해주세요.' };
+  }
+
+  var sheet = getValueSheet_();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) === String(studentId)) {
+      return { valid: true, submitted: true };
+    }
+  }
+  return { valid: true, submitted: false };
+}
+
+// student_value.html 전체 제출
+function submitValuePerspective(payload) {
+  // payload: { studentId, studentName, causalChain, value, perspective, reason }
+  var already = checkValueAlreadySubmitted(payload.studentId, payload.studentName);
+  if (!already.valid) {
+    return { success: false, message: already.message };
+  }
+  if (already.submitted) {
+    return { success: false, message: '이미 제출한 기록이 있습니다. 한 명당 한 번만 제출 가능합니다.' };
+  }
+
+  if (!payload.causalChain || payload.causalChain.trim().length < 5) {
+    return { success: false, message: '가장 긴 인과 사슬을 화살표로 옮겨 적어주세요.' };
+  }
+  if (!payload.value || payload.value.trim().length < 2) {
+    return { success: false, message: '평소에 중요하게 생각하는 가치를 입력해주세요.' };
+  }
+  if (!payload.perspective) {
+    return { success: false, message: '선택한 관점을 골라주세요.' };
+  }
+  if (!payload.reason || payload.reason.trim().length < 5) {
+    return { success: false, message: '관점을 선택한 이유를 구체적으로 작성해주세요.' };
+  }
+
+  var sheet = getValueSheet_();
+  sheet.appendRow([
+    new Date(),
+    payload.studentId,
+    payload.studentName,
+    payload.causalChain,
+    payload.value,
+    payload.perspective,
+    payload.reason
+  ]);
+
+  return { success: true };
 }

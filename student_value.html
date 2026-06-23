@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>기후위기 인과 사슬 & 가치 관점 제출</title>
+<style>
+  body { font-family: 'Noto Sans KR', sans-serif; max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; background: #f6f8fa; color: #222; }
+  h1 { font-size: 20px; text-align: center; }
+  .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  label { display: block; font-weight: bold; margin: 14px 0 6px; }
+  .sub-label { font-size: 12.5px; color: #888; font-weight: normal; margin-top: 2px; }
+  input[type=text], textarea, select {
+    width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px;
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  button { background: #2d6cdf; color: #fff; border: none; padding: 12px 18px; border-radius: 8px; font-size: 15px; cursor: pointer; margin-top: 14px; }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  .hidden { display: none; }
+  .msg { padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 14px; }
+  .msg.error { background: #ffe5e5; color: #b00000; }
+  .msg.success { background: #e3f7e8; color: #1a7a36; }
+  .step-label { font-size: 13px; color: #777; margin-bottom: 4px; }
+  .field-row { display: flex; gap: 8px; align-items: flex-start; }
+  .field-row textarea { flex: 1; }
+  .arrow-btn {
+    flex-shrink: 0; background: #fff; color: #2d6cdf; border: 1px solid #2d6cdf; border-radius: 8px;
+    padding: 0 14px; font-size: 18px; cursor: pointer; margin-top: 0; height: 44px; white-space: nowrap;
+  }
+  .arrow-btn:hover { background: #eaf1ff; }
+  .arrow-hint { font-size: 12px; color: #888; margin-top: 4px; }
+  #thanks { text-align: center; margin-top: 60px; }
+</style>
+</head>
+<body>
+  <h1>🔺 기후위기 인과 사슬 & 가치 관점 제출</h1>
+
+  <!-- STEP 0: 학번/이름 -->
+  <div id="step0" class="card">
+    <div class="step-label">STEP 1. 본인 확인</div>
+    <label>학번</label>
+    <input type="text" id="studentId" placeholder="예: 3101 (3학년 1반 1번)">
+    <label>이름</label>
+    <input type="text" id="studentName" placeholder="이름 입력">
+    <div id="step0-msg"></div>
+    <button onclick="goToForm()" id="next-btn">다음</button>
+  </div>
+
+  <!-- STEP 1: 제출 폼 -->
+  <div id="step1" class="card hidden">
+    <div class="step-label">STEP 2. 인과 사슬 & 가치 관점 작성</div>
+
+    <label>질문 1. 기후 재난 인과관계 배치 게임에서 찾은 인과 중, 4가지 요소 이상으로 구성된 가장 긴 사슬을 화살표(➡️)를 이용해 옮겨 적어보세요.
+      <div class="sub-label">예: 화석 연료 사용 ➡️ 온실기체 배출량 급증 ➡️ 지구 온난화 ➡️ 해수면 상승</div>
+    </label>
+    <div class="field-row">
+      <textarea id="causalChain" placeholder="여기에 인과 사슬을 화살표로 이어서 적어보세요."></textarea>
+      <button class="arrow-btn" type="button" onclick="insertArrow()">➡️ 복사</button>
+    </div>
+    <div class="arrow-hint">버튼을 누르면 커서 위치에 화살표(➡️)가 입력되고, 클립보드에도 복사됩니다.</div>
+
+    <label>질문 2-1. 내가 평소에 중요하게 생각하는 가치는 무엇인가요?
+      <div class="sub-label">예: 공정함, 효율성, 생명 존중, 정직함 등 한 단어 또는 짧은 문장으로</div>
+    </label>
+    <input type="text" id="myValue" placeholder="예: 공정함">
+
+    <label>질문 2-2. 내가 선택한 관점</label>
+    <select id="perspective">
+      <option value="">선택해주세요</option>
+      <option value="경제적 관점">💰 경제적 관점</option>
+      <option value="기술적 관점">🔬 기술적 관점</option>
+      <option value="윤리적 관점">🤝 윤리적 관점</option>
+    </select>
+
+    <label>질문 2-3. 내가 중요하게 생각하는 가치로부터, 왜 위의 관점을 선택했는지 구체적으로 설명하세요.</label>
+    <textarea id="reason" placeholder="나의 가치관과 선택한 관점을 연결지어 구체적으로 작성해보세요."></textarea>
+
+    <div id="submit-msg"></div>
+    <button onclick="submitAll()" id="submit-btn">제출하기</button>
+  </div>
+
+  <div id="thanks" class="hidden">
+    <h2>✅ 제출 완료!</h2>
+    <p>나의 인과 사슬과 가치 관점이 안전하게 기록되었습니다. 4차시 긴급회의에서 만나요!</p>
+  </div>
+
+<script>
+var APP_URL = 'https://script.google.com/macros/s/AKfycbwWjFVmcxHzg0GUIbySHl2orXll2siH1I5oAeZNP8VWmYSaVbQ5YOlYEe1o7X7-KcHQ/exec';
+
+function apiGet(params) {
+  var qs = Object.keys(params).map(function (k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+  return fetch(APP_URL + '?' + qs).then(function (r) { return r.json(); });
+}
+
+function apiPost(body) {
+  return fetch(APP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  }).then(function (r) { return r.json(); });
+}
+
+function goToForm() {
+  var id = document.getElementById('studentId').value.trim();
+  var name = document.getElementById('studentName').value.trim();
+  var msg = document.getElementById('step0-msg');
+  var btn = document.getElementById('next-btn');
+  msg.innerHTML = '';
+
+  if (!id || !name) {
+    msg.innerHTML = '<div class="msg error">학번과 이름을 모두 입력해주세요.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  msg.innerHTML = '<div class="msg success">확인 중...</div>';
+
+  apiGet({ action: 'checkValueSubmitted', studentId: id, studentName: name }).then(function (res) {
+    btn.disabled = false;
+    if (!res.valid) {
+      msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
+    } else if (res.submitted) {
+      msg.innerHTML = '<div class="msg error">이미 제출한 기록이 있습니다. 한 명당 한 번만 제출 가능합니다.</div>';
+    } else {
+      msg.innerHTML = '';
+      document.getElementById('step0').classList.add('hidden');
+      document.getElementById('step1').classList.remove('hidden');
+    }
+  }).catch(function (err) {
+    btn.disabled = false;
+    msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+  });
+}
+
+function insertArrow() {
+  var ta = document.getElementById('causalChain');
+  var start = ta.selectionStart || ta.value.length;
+  var end = ta.selectionEnd || ta.value.length;
+  var arrow = ' ➡️ ';
+  ta.value = ta.value.slice(0, start) + arrow + ta.value.slice(end);
+  var newPos = start + arrow.length;
+  ta.focus();
+  ta.setSelectionRange(newPos, newPos);
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText('➡️').catch(function () {});
+  }
+}
+
+function submitAll() {
+  var msg = document.getElementById('submit-msg');
+  var btn = document.getElementById('submit-btn');
+
+  var payload = {
+    studentId: document.getElementById('studentId').value.trim(),
+    studentName: document.getElementById('studentName').value.trim(),
+    causalChain: document.getElementById('causalChain').value.trim(),
+    value: document.getElementById('myValue').value.trim(),
+    perspective: document.getElementById('perspective').value,
+    reason: document.getElementById('reason').value.trim()
+  };
+
+  if (!payload.causalChain) { msg.innerHTML = '<div class="msg error">질문 1(인과 사슬)을 작성해주세요.</div>'; return; }
+  if (!payload.value) { msg.innerHTML = '<div class="msg error">질문 2-1(중요하게 생각하는 가치)을 작성해주세요.</div>'; return; }
+  if (!payload.perspective) { msg.innerHTML = '<div class="msg error">질문 2-2(선택한 관점)을 골라주세요.</div>'; return; }
+  if (!payload.reason) { msg.innerHTML = '<div class="msg error">질문 2-3(선택한 이유)을 작성해주세요.</div>'; return; }
+
+  btn.disabled = true;
+  msg.innerHTML = '<div class="msg success">제출 중...</div>';
+
+  apiPost({ action: 'submitValue', payload: payload }).then(function (res) {
+    if (res.success) {
+      document.getElementById('step1').classList.add('hidden');
+      document.getElementById('thanks').classList.remove('hidden');
+    } else {
+      msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
+      btn.disabled = false;
+    }
+  }).catch(function (err) {
+    msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+    btn.disabled = false;
+  });
+}
+</script>
+</body>
+</html>
