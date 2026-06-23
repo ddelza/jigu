@@ -359,6 +359,20 @@ const EDGE_EXPLANATIONS = {
   'I8>I2': '어업 자원이나 꽃가루를 옮기는 곤충 같은 생태계가 무너지면 식량 생산 자체가 줄어들어요.',
 };
 
+const NODE_POSSIBLE = {};
+NODES.forEach(n => NODE_POSSIBLE[n.id] = 0);
+Object.keys(EDGES).forEach(from => {
+  EDGES[from].forEach(to => {
+    NODE_POSSIBLE[from]++;
+    NODE_POSSIBLE[to]++;
+  });
+});
+
+function countNodeConnections(nodeId) {
+  const made = edgesMade.filter(e => e.from === nodeId || e.to === nodeId).length;
+  return { made: made, possible: NODE_POSSIBLE[nodeId] || 0 };
+}
+
 // ===================== 상태 =====================
 const placed = {};      // id -> { x, y, el }
 const edgesMade = [];    // { from, to, pathEl }
@@ -416,7 +430,9 @@ function hideTooltip() {
 
 function attachNodeTooltip(el, node) {
   el.addEventListener('pointerenter', e => {
-    showTooltip('<div class="tt-title">' + nodeLabel(node) + '</div>' + node.desc, e.clientX, e.clientY);
+    const conn = countNodeConnections(node.id);
+    showTooltip('<div class="tt-title">' + nodeLabel(node) + '</div>' + node.desc +
+      '<div class="tt-why">🔗 연결된 인과관계: <b>' + conn.made + '</b> / ' + conn.possible + '개</div>', e.clientX, e.clientY);
   });
   el.addEventListener('pointermove', e => positionTooltip(e.clientX, e.clientY));
   el.addEventListener('pointerleave', hideTooltip);
