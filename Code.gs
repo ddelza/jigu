@@ -366,7 +366,30 @@ function getMySubmissions(studentId, studentName, password) {
     }
   }
 
-  return { valid: true, own: own, learning: learning };
+  return { valid: true, own: own, learning: learning, valueScore: getValuePerspectiveScore_(studentId) };
+}
+
+// "학생별" 탭의 S~Y열(인과사슬/가치/관점/이유 내용 + W,X,Y 점수)을 읽어서 반환
+function getValuePerspectiveScore_(studentId) {
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
+  if (!sheet) return null;
+
+  var data = sheet.getRange(1, 1, sheet.getLastRow(), 25).getValues(); // A~Y열
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0]).trim() === String(studentId).trim()) {
+      var row = data[i];
+      return {
+        causalChain: row[18] || '',   // S열
+        value: row[19] || '',         // T열
+        perspective: row[20] || '',   // U열
+        reason: row[21] || '',        // V열
+        scoreCausal: row[22],         // W열
+        scoreReasonImportance: row[23], // X열
+        scoreReasonConnection: row[24]  // Y열
+      };
+    }
+  }
+  return null;
 }
 
 function getValueSheet_() {

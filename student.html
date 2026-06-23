@@ -37,6 +37,8 @@
     .point-badge.got { background: #e3f7e8; color: #1a7a36; }
     .point-badge.missed { background: #f0f0f0; color: #999; }
     .hint-text { font-size: 12px; font-weight: normal; color: #888; }
+    .pending { background: #fff7e0; color: #9a7600; }
+    .explain-box { background: #f5f8ff; border: 1px solid #dbe6ff; border-radius: 8px; padding: 10px 12px; font-size: 12.5px; color: #555; line-height: 1.6; margin-bottom: 10px; }
   </style>
 </head>
 <body>
@@ -72,6 +74,12 @@
   <div id="learningCard" class="card hidden">
     <div class="result-title">👂 친구 발표 청취 핵심 개념일지</div>
     <div id="learningContent"></div>
+  </div>
+
+  <!-- STEP 3: 인과 사슬 & 가치 관점 제출 결과 -->
+  <div id="valueCard" class="card hidden">
+    <div class="result-title">🔺 인과 사슬 & 가치 관점</div>
+    <div id="valueContent"></div>
   </div>
 
 <script>
@@ -173,16 +181,21 @@ function loadMySubmissions() {
       return;
     }
     msg.innerHTML = '';
-    renderScore(res.own, res.learning);
+    renderScore(res.own, res.learning, res.valueScore);
     renderOwn(res.own);
     renderLearning(res.learning);
+    renderValue(res.valueScore);
   }).catch(function (err) {
     btn.disabled = false;
     msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
   });
 }
 
-function renderScore(own, learning) {
+function isGradedNumber(v) {
+  return v !== null && v !== undefined && v !== '' && !isNaN(Number(v));
+}
+
+function renderScore(own, learning, valueScore) {
   var card = document.getElementById('scoreCard');
   card.classList.remove('hidden');
 
@@ -203,13 +216,32 @@ function renderScore(own, learning) {
   var total = items.reduce(function (sum, it) { return sum + (it.got ? it.point : 0); }, 0);
   var max = items.reduce(function (sum, it) { return sum + it.point; }, 0);
 
+  var gradedItems = [
+    { label: '기후위기 인과 찾기', score: valueScore && valueScore.scoreCausal, max: 2 },
+    { label: '나의 가치가 중요한 이유 서술', score: valueScore && valueScore.scoreReasonImportance, max: 2 },
+    { label: '나의 가치와 기후위기 해결 관점 연결', score: valueScore && valueScore.scoreReasonConnection, max: 2 }
+  ];
+  gradedItems.forEach(function (it) {
+    max += it.max;
+    if (isGradedNumber(it.score)) total += Number(it.score);
+  });
+
   document.getElementById('scoreTotal').innerHTML = total + '<span> / ' + max + '점</span>';
-  document.getElementById('scoreList').innerHTML = items.map(function (it) {
-    return '<div class="score-row">' +
-      '<span>' + it.label + '</span>' +
-      '<span class="score-badge ' + (it.got ? 'got' : 'missed') + '">' + (it.got ? '✅ ' + it.point + '점' : '미완료 0점') + '</span>' +
-      '</div>';
-  }).join('');
+  document.getElementById('scoreList').innerHTML =
+    items.map(function (it) {
+      return '<div class="score-row">' +
+        '<span>' + it.label + '</span>' +
+        '<span class="score-badge ' + (it.got ? 'got' : 'missed') + '">' + (it.got ? '✅ ' + it.point + '점' : '미완료 0점') + '</span>' +
+        '</div>';
+    }).join('') +
+    gradedItems.map(function (it) {
+      var badgeClass = isGradedNumber(it.score) ? 'got' : 'pending';
+      var badgeText = isGradedNumber(it.score) ? ('✅ ' + Number(it.score) + '점') : '채점 대기중';
+      return '<div class="score-row">' +
+        '<span>' + it.label + ' (' + it.max + '점)</span>' +
+        '<span class="score-badge ' + badgeClass + '">' + badgeText + '</span>' +
+        '</div>';
+    }).join('');
 }
 
 function renderOwn(own) {
@@ -249,6 +281,37 @@ function renderLearning(learning) {
       renderBlanksWithPrompts(item.section, item.blanks) +
       '</div>';
   }).join('');
+}
+
+function renderValue(vs) {
+  var card = document.getElementById('valueCard');
+  var content = document.getElementById('valueContent');
+  card.classList.remove('hidden');
+
+  if (!vs || (!vs.causalChain && !vs.reason)) {
+    content.innerHTML = '<div class="empty">아직 제출한 기록이 없습니다.</div>';
+    return;
+  }
+
+  function scoreBadge(score, max) {
+    if (isGradedNumber(score)) return '<span class="point-badge got">✅ ' + Number(score) + '점 / ' + max + '점</span>';
+    return '<span class="point-badge pending">채점 대기중 (' + max + '점)</span>';
+  }
+
+  content.innerHTML =
+    '<div class="field"><div class="field-label">🔗 기후위기 인과 찾기 ' + scoreBadge(vs.scoreCausal, 2) + '</div>' +
+    '<div class="field-value">' + escapeHtml_(vs.causalChain) + '</div></div>' +
+
+    '<div class="field"><div class="field-label">💭 내가 평소 중요하게 생각하는 가치 / 선택한 관점</div>' +
+    '<div class="field-value">가치: ' + escapeHtml_(vs.value) + '<br>관점: ' + escapeHtml_(vs.perspective) + '</div></div>' +
+
+    '<div class="field"><div class="field-label">📝 가치와 관점을 연결한 서술</div>' +
+    '<div class="explain-box">아래 서술 하나를 가지고 두 가지 기준으로 채점됩니다: ① 내가 고른 가치가 <b>나에게 왜 중요한지</b>를 설명했는지, ② 그 가치가 <b>왜 내가 선택한 관점과 연결되는지</b> 논리적으로 설명했는지.</div>' +
+    '<div class="field-value">' + escapeHtml_(vs.reason) + '</div>' +
+    '<div style="margin-top:8px;">' +
+      '가치가 중요한 이유 ' + scoreBadge(vs.scoreReasonImportance, 2) + '&nbsp;&nbsp;' +
+      '가치-관점 연결 ' + scoreBadge(vs.scoreReasonConnection, 2) +
+    '</div></div>';
 }
 
 function escapeHtml_(s) {
