@@ -615,16 +615,47 @@ function findPadletRow_(sheet, postId) {
   return -1;
 }
 
+var PADLET_TEACHER_ID = '3000'; // 교사용 예시 게시물 학번 (항상 상단 고정 + 핑크색 표시)
+
+// "학생별" 탭 T열(선택한 가치)/U열(선택한 관점)을 학번 기준 맵으로 읽어옴
+function getStudentProfiles_() {
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
+  if (!sheet) return {};
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 1) return {};
+  var data = sheet.getRange(1, 1, lastRow, 21).getValues(); // A~U열
+  var map = {};
+  for (var i = 0; i < data.length; i++) {
+    var id = String(data[i][0]).trim();
+    if (!id) continue;
+    map[id] = { value: data[i][19] || '', perspective: data[i][20] || '' }; // T열, U열
+  }
+  return map;
+}
+
+function decoratePadletAuthor_(obj, profiles) {
+  var isTeacher = String(obj.studentId) === PADLET_TEACHER_ID;
+  var profile = profiles[String(obj.studentId)] || {};
+  obj.isTeacher = isTeacher;
+  obj.authorValue = isTeacher ? '' : (profile.value || '');
+  obj.authorPerspective = isTeacher ? '' : (profile.perspective || '');
+  return obj;
+}
+
 // 클라이언트(padlet.html)에서 호출: 전체 게시물 + (있다면) 내 반응 상태 포함해 반환
 function getPadletPosts(studentId) {
   var sheet = getPadletSheet_();
   var data = sheet.getDataRange().getValues();
+  var profiles = getStudentProfiles_();
   var posts = [];
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
     if (!row[0]) continue;
     var reactions = safeParseJson_(row[9], {});
-    posts.push({
+    var comments = safeParseJson_(row[10], []).map(function (c) {
+      return decoratePadletAuthor_(c, profiles);
+    });
+    posts.push(decoratePadletAuthor_({
       id: row[0],
       timestamp: Utilities.formatDate(new Date(row[1]), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
       studentId: row[2],
@@ -635,10 +666,13 @@ function getPadletPosts(studentId) {
       likeCount: Number(row[7]) || 0,
       curiousCount: Number(row[8]) || 0,
       myReaction: (studentId && reactions[studentId]) ? reactions[studentId] : null,
-      comments: safeParseJson_(row[10], [])
-    });
+      comments: comments
+    }, profiles));
   }
-  posts.sort(function (a, b) { return a.id < b.id ? 1 : -1; }); // 최신 게시물이 위로
+  posts.sort(function (a, b) {
+    if (a.isTeacher !== b.isTeacher) return a.isTeacher ? -1 : 1; // 교사 게시물 상단 고정
+    return a.id < b.id ? 1 : -1; // 그 외엔 최신 게시물이 위로
+  });
   return { valid: true, posts: posts };
 }
 
