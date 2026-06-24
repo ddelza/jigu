@@ -50,6 +50,12 @@
   }
   header h1 { font-size: 17px; margin: 0; }
   header h1 span { display: block; font-size: 12px; color: var(--sub); font-weight: normal; margin-top: 2px; }
+  #headerRight { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  #rubricBox {
+    font-size: 11.5px; color: var(--sub); background: #f5f8ff; border: 1px solid #dbe6ff;
+    border-radius: 8px; padding: 6px 12px; line-height: 1.5; text-align: left; white-space: nowrap;
+  }
+  #rubricBox b { color: var(--accent); }
   #whoami { font-size: 13px; color: var(--sub); text-align: right; }
   #whoami b { color: var(--text); }
   #logoutBtn { margin-left: 10px; font-size: 12px; color: var(--accent); cursor: pointer; text-decoration: underline; }
@@ -145,6 +151,11 @@
   #modalBox .modal-sub { font-size: 12.5px; color: var(--sub); margin-bottom: 16px; }
   #modalBox label { font-size: 13.5px; font-weight: bold; display: block; margin: 14px 0 6px; }
   #modalBox .label-hint { font-size: 12px; font-weight: normal; color: var(--sub); display: block; margin-top: 2px; }
+  #modalBox .label-hint a { color: var(--accent); }
+  .point-tag {
+    font-size: 11px; font-weight: bold; color: var(--accent); background: #eaf1ff;
+    border-radius: 999px; padding: 1px 8px; margin-left: 4px;
+  }
   #modalBox textarea {
     width: 100%; min-height: 90px; padding: 10px; border: 1px solid var(--line); border-radius: 8px;
     font-size: 13.5px; font-family: inherit; resize: vertical;
@@ -209,7 +220,15 @@
       <h1>🗂️ 기후위기 해결 관점 게시판 (전체 보기)
         <span>모든 반의 게시물을 함께 볼 수 있어요. 각 관점 제목을 눌러 글을 작성하고, 친구들 게시물에 반응·댓글을 남겨보세요.</span>
       </h1>
-      <div id="whoami"></div>
+      <div id="headerRight">
+        <div id="rubricBox">
+          📋 평가 기준 <b>(총 6점)</b>
+          <div>· 인과관계 설명 — 1점</div>
+          <div>· 관점별 해결책 제안 — 2점</div>
+          <div>· 질문형 댓글 — 1개당 1점 (최대 3점)</div>
+        </div>
+        <div id="whoami"></div>
+      </div>
     </header>
     <div id="board"></div>
   </div>
@@ -220,13 +239,15 @@
       <h2 id="modalTitle"></h2>
       <div class="modal-sub">아래 두 가지를 모두 작성해야 게시할 수 있어요.</div>
 
-      <label>(1) 선택한 인과관계 설명하기
+      <label>(1) 인과 선택하고 선택한 인과관계 설명하기 <span class="point-tag">1점</span>
         <span class="label-hint">인과관계 배치 게임의 3단계(기상 재난) 또는 4단계(삶과 사회의 위협) 문제를 하나 선택하고, &lt;화석연료 사용&gt;으로부터 출발해서 그 문제가 발생하는 인과관계를 줄글로 서술하세요.</span>
+        <span class="label-hint">🔗 <a href="global_warming_answer.html" target="_blank">인과단계 연결하기 게임 정답 확인하기 →</a></span>
       </label>
       <textarea id="causalInput" placeholder="예) 화석연료 사용으로 온실기체 배출량이 급증하고 지구 온난화가 심해지면서 → ... → 결국 ○○○ 문제가 발생합니다."></textarea>
 
-      <label>(2) 내가 미국 대통령이라면?
+      <label>(2) 관점(경제적/기술적/윤리적)에 따른 문제 해결 방법 제안하기 <span class="point-tag">2점</span>
         <span class="label-hint">내가 미국 대통령이고, 내가 선택한 관점(경제적/기술적/윤리적)에서 이 문제를 해결한다면 어떤 정책을 펼칠 수 있을까요?</span>
+        <span class="label-hint">🔗 <a href="3value.html" target="_blank">각 관점 및 관점별 정책 예시 살펴보기 →</a></span>
       </label>
       <textarea id="policyInput" placeholder="예) 저는 ○○ 정책을 시행하겠습니다. 왜냐하면..."></textarea>
 
@@ -433,7 +454,7 @@ function renderPostCard(post) {
     commentsHtml = '<div class="comment-box">' +
       renderComments(post) +
       '<div class="comment-input-row">' +
-        '<input type="text" id="comment-input-' + post.id + '" placeholder="질문형 댓글을 남겨보세요" onkeydown="if(event.key===\'Enter\')submitComment(\'' + post.id + '\')" onfocus="composing=true" onblur="composing=false">' +
+        '<input type="text" id="comment-input-' + post.id + '" placeholder="질문형 댓글을 남겨보세요. (3개 이상 만점)" onkeydown="if(event.key===\'Enter\')submitComment(\'' + post.id + '\')" onfocus="composing=true" onblur="composing=false">' +
         '<button onclick="submitComment(\'' + post.id + '\')">등록</button>' +
       '</div>' +
     '</div>';
