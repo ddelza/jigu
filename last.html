@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기후 위기 긴급 회의 성찰하기</title>
+<style>
+  body { font-family: 'Noto Sans KR', sans-serif; max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; background: #f6f8fa; color: #222; }
+  h1 { font-size: 20px; text-align: center; }
+  .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  label { display: block; font-weight: bold; margin: 14px 0 6px; }
+  .sub-label { font-size: 12.5px; color: #888; font-weight: normal; margin-top: 2px; }
+  input[type=text], textarea {
+    width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px;
+  }
+  textarea { min-height: 90px; resize: vertical; font-family: inherit; }
+  button { background: #2d6cdf; color: #fff; border: none; padding: 12px 18px; border-radius: 8px; font-size: 15px; cursor: pointer; margin-top: 14px; }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  .hidden { display: none; }
+  .msg { padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 14px; }
+  .msg.error { background: #ffe5e5; color: #b00000; }
+  .msg.success { background: #e3f7e8; color: #1a7a36; }
+  .step-label { font-size: 13px; color: #777; margin-bottom: 4px; }
+  #thanks { text-align: center; margin-top: 60px; }
+  .point-tag { font-size: 12.5px; font-weight: bold; color: #2d6cdf; background: #eaf1ff; border-radius: 999px; padding: 2px 9px; margin-left: 4px; }
+  .hint-box {
+    border: 1.5px solid #2d6cdf; border-radius: 8px; padding: 10px 14px; margin: 6px 0 4px;
+    background: #f5f8ff; font-size: 13px; color: #444; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+  <h1>🌍 기후 위기 긴급 회의 성찰하기</h1>
+
+  <!-- STEP 0: 학번/이름 -->
+  <div id="step0" class="card">
+    <div class="step-label">STEP 1. 본인 확인</div>
+    <label>학번</label>
+    <input type="text" id="studentId" placeholder="예: 3101 (3학년 1반 1번)">
+    <label>이름</label>
+    <input type="text" id="studentName" placeholder="이름 입력">
+    <div id="step0-msg"></div>
+    <button onclick="goToForm()" id="next-btn">다음</button>
+  </div>
+
+  <!-- STEP 1: 성찰 작성 -->
+  <div id="step1" class="card hidden">
+    <div class="step-label">STEP 2. 마지막 차시 성찰 작성 <span class="point-tag">총 6점</span></div>
+    <div class="sub-label" style="margin-bottom:10px;">간단하게 작성해도 됩니다!</div>
+
+    <label>1) [지식] 프로젝트를 통해 알게 된 것 <span class="point-tag">2점</span></label>
+    <div class="hint-box">기권과 날씨의 과학적 원리와 사회적 대안을 융합하는 과정에서 새롭게 알게 된 지식을 논리적으로 요약하세요.</div>
+    <textarea id="knowledgeInput" placeholder="이번 프로젝트를 통해 새롭게 알게 된 것을 적어보세요."></textarea>
+
+    <label>2) [관점의 변화] 생각의 확장 성찰 <span class="point-tag">2점</span></label>
+    <div class="hint-box">치열한 긴급 회의를 거치며, 내가 2~3차시에 초기에 중요하다고 선택했던 관점(경제적/기술적/윤리·사회적)이 어떻게 변화했는지(또는 유지되었는지) 구체적인 근거와 함께 서술하세요.</div>
+    <textarea id="perspectiveChangeInput" placeholder="처음 선택한 관점이 어떻게 변화했는지(또는 유지되었는지) 적어보세요."></textarea>
+
+    <label>3) [실천] 기후 시민으로서의 포부 <span class="point-tag">2점</span></label>
+    <div class="hint-box">긴급회의 대안 중 가장 마음을 울렸거나 현실적이라고 생각되는 실천 방안을 꼽고, 향후 나의 일상, 사회, 세계적 차원에서 행동할 구체적인 다짐을 기술하세요.</div>
+    <textarea id="commitmentInput" placeholder="가장 인상적이었던 실천 방안과, 앞으로의 구체적인 다짐을 적어보세요."></textarea>
+
+    <div id="submit-msg"></div>
+    <button onclick="submitAll()" id="submit-btn">제출하기</button>
+  </div>
+
+  <div id="thanks" class="hidden">
+    <h2>✅ 제출 완료!</h2>
+    <p>한 학기 동안의 기후위기 긴급회의 프로젝트, 정말 고생 많았습니다!</p>
+  </div>
+
+<script>
+var APP_URL = 'https://script.google.com/macros/s/AKfycbwWjFVmcxHzg0GUIbySHl2orXll2siH1I5oAeZNP8VWmYSaVbQ5YOlYEe1o7X7-KcHQ/exec';
+var isEditMode = false;
+
+function apiGet(params) {
+  var qs = Object.keys(params).map(function (k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+  return fetch(APP_URL + '?' + qs).then(function (r) { return r.json(); });
+}
+
+function apiPost(body) {
+  return fetch(APP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  }).then(function (r) { return r.json(); });
+}
+
+function goToForm() {
+  var id = document.getElementById('studentId').value.trim();
+  var name = document.getElementById('studentName').value.trim();
+  var msg = document.getElementById('step0-msg');
+  var btn = document.getElementById('next-btn');
+  msg.innerHTML = '';
+
+  if (!id || !name) {
+    msg.innerHTML = '<div class="msg error">학번과 이름을 모두 입력해주세요.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  msg.innerHTML = '<div class="msg success">확인 중...</div>';
+
+  apiGet({ action: 'checkReflectionSubmitted', studentId: id, studentName: name }).then(function (res) {
+    btn.disabled = false;
+    if (!res.valid) {
+      msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
+      return;
+    }
+    msg.innerHTML = '';
+    document.getElementById('step0').classList.add('hidden');
+    document.getElementById('step1').classList.remove('hidden');
+    isEditMode = !!res.submitted;
+    if (res.draft) fillDraft(res.draft);
+    if (isEditMode) {
+      document.getElementById('submit-btn').textContent = '✏️ 수정 제출하기';
+      document.getElementById('submit-msg').innerHTML = '<div class="msg success">✏️ 이미 제출한 내용을 불러왔습니다. 수정 후 "수정 제출하기"를 눌러주세요.</div>';
+    }
+  }).catch(function (err) {
+    btn.disabled = false;
+    msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+  });
+}
+
+function fillDraft(draft) {
+  document.getElementById('knowledgeInput').value = draft.knowledge || '';
+  document.getElementById('perspectiveChangeInput').value = draft.perspectiveChange || '';
+  document.getElementById('commitmentInput').value = draft.commitment || '';
+}
+
+function submitAll() {
+  var msg = document.getElementById('submit-msg');
+  var btn = document.getElementById('submit-btn');
+
+  var payload = {
+    studentId: document.getElementById('studentId').value.trim(),
+    studentName: document.getElementById('studentName').value.trim(),
+    knowledge: document.getElementById('knowledgeInput').value.trim(),
+    perspectiveChange: document.getElementById('perspectiveChangeInput').value.trim(),
+    commitment: document.getElementById('commitmentInput').value.trim()
+  };
+
+  if (!payload.knowledge) { msg.innerHTML = '<div class="msg error">1) 알게 된 것을 작성해주세요.</div>'; return; }
+  if (!payload.perspectiveChange) { msg.innerHTML = '<div class="msg error">2) 관점의 변화를 작성해주세요.</div>'; return; }
+  if (!payload.commitment) { msg.innerHTML = '<div class="msg error">3) 실천 다짐을 작성해주세요.</div>'; return; }
+
+  btn.disabled = true;
+  msg.innerHTML = '<div class="msg success">제출 중...</div>';
+
+  apiPost({ action: 'submitReflection', payload: payload }).then(function (res) {
+    if (res.success) {
+      document.getElementById('step1').classList.add('hidden');
+      if (isEditMode) {
+        document.getElementById('thanks').querySelector('h2').textContent = '✅ 수정 완료!';
+        document.getElementById('thanks').querySelector('p').textContent = '성찰 내용이 새로운 내용으로 수정되었습니다.';
+      }
+      document.getElementById('thanks').classList.remove('hidden');
+    } else {
+      msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
+      btn.disabled = false;
+    }
+  }).catch(function (err) {
+    msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+    btn.disabled = false;
+  });
+}
+</script>
+</body>
+</html>

@@ -84,6 +84,8 @@ function doGet(e) {
     result = { valid: verifyStudent_(e.parameter.studentId, e.parameter.studentName) };
   } else if (action === 'getPadletPosts') {
     result = getPadletPosts(e.parameter.studentId);
+  } else if (action === 'checkReflectionSubmitted') {
+    result = checkReflectionSubmitted(e.parameter.studentId, e.parameter.studentName);
   } else {
     result = { error: 'unknown action' };
   }
@@ -112,6 +114,8 @@ function doPost(e) {
     result = addPadletComment(body.payload);
   } else if (body.action === 'deletePadletComment') {
     result = deletePadletComment(body.payload);
+  } else if (body.action === 'submitReflection') {
+    result = submitReflection(body.payload);
   } else {
     result = { error: 'unknown action' };
   }
@@ -918,4 +922,81 @@ function deletePadletComment(payload) {
   clearPadletPostsCache_();
 
   return { success: true, comments: comments };
+}
+
+// ===================== last.html (마지막 차시 성찰일지) =====================
+var REFLECTION_SHEET_NAME = '성찰일지';
+
+function getReflectionSheet_() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(REFLECTION_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(REFLECTION_SHEET_NAME);
+    sheet.appendRow(['제출시각', '학번', '이름', '알게 된 것', '관점의 변화', '실천 다짐']);
+  }
+  return sheet;
+}
+
+function findReflectionRow_(sheet, studentId) {
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) === String(studentId)) return i + 1; // 1-based
+  }
+  return -1;
+}
+
+// 클라이언트(last.html)에서 호출: 본인 확인 + 이미 제출했어도 내용을 불러와 수정할 수 있게 draft로 함께 반환
+function checkReflectionSubmitted(studentId, studentName) {
+  if (!verifyStudent_(studentId, studentName)) {
+    return { valid: false, message: '학번 또는 이름이 명단과 일치하지 않습니다. 다시 확인해주세요.' };
+  }
+
+  var sheet = getReflectionSheet_();
+  var rowNum = findReflectionRow_(sheet, studentId);
+  if (rowNum === -1) return { valid: true, submitted: false };
+
+  var row = sheet.getRange(rowNum, 1, 1, 6).getValues()[0];
+  var complete = String(row[3] || '').trim() !== '' && String(row[4] || '').trim() !== '' && String(row[5] || '').trim() !== '';
+  return {
+    valid: true,
+    submitted: complete,
+    draft: {
+      knowledge: row[3] || '',
+      perspectiveChange: row[4] || '',
+      commitment: row[5] || ''
+    }
+  };
+}
+
+// last.html 전체 제출 (이미 제출했어도 같은 행을 덮어써서 수정 가능)
+function submitReflection(payload) {
+  var already = checkReflectionSubmitted(payload.studentId, payload.studentName);
+  if (!already.valid) {
+    return { success: false, message: already.message };
+  }
+
+  if (!payload.knowledge || payload.knowledge.trim().length < 5) {
+    return { success: false, message: '1) 프로젝트를 통해 알게 된 것을 작성해주세요.' };
+  }
+  if (!payload.perspectiveChange || payload.perspectiveChange.trim().length < 5) {
+    return { success: false, message: '2) 관점의 변화(또는 유지)에 대한 성찰을 작성해주세요.' };
+  }
+  if (!payload.commitment || payload.commitment.trim().length < 5) {
+    return { success: false, message: '3) 기후 시민으로서의 실천 다짐을 작성해주세요.' };
+  }
+
+  var sheet = getReflectionSheet_();
+  var rowValues = [
+    new Date(), payload.studentId, payload.studentName,
+    payload.knowledge.trim(), payload.perspectiveChange.trim(), payload.commitment.trim()
+  ];
+
+  var existingRow = findReflectionRow_(sheet, payload.studentId);
+  if (existingRow !== -1) {
+    sheet.getRange(existingRow, 1, 1, 6).setValues([rowValues]);
+  } else {
+    sheet.appendRow(rowValues);
+  }
+
+  return { success: true };
 }
