@@ -613,7 +613,11 @@ function findPadletRow_(sheet, postId) {
   return -1;
 }
 
-var PADLET_TEACHER_ID = '3000'; // 교사용 예시 게시물 학번 (항상 상단 고정 + 핑크색 표시)
+// 학번의 2번째 숫자(반)가 '0'이면 운영자(교사) 계정으로 간주 — 모든 반에서 보이고 상단 고정 + 핑크색 표시
+function isPadletOperatorId_(id) {
+  id = String(id || '');
+  return id.length >= 2 && id.charAt(1) === '0';
+}
 var PADLET_PROFILES_CACHE_KEY = 'padlet_profiles_v1';
 var PADLET_PROFILES_CACHE_TTL = 30; // 학생들의 가치/관점은 수업 중 자주 안 바뀌므로 30초 캐시
 var PADLET_POSTS_CACHE_KEY = 'padlet_posts_v1';
@@ -645,7 +649,7 @@ function getStudentProfiles_() {
 }
 
 function decoratePadletAuthor_(obj, profiles) {
-  var isTeacher = String(obj.studentId) === PADLET_TEACHER_ID;
+  var isTeacher = isPadletOperatorId_(obj.studentId);
   var profile = profiles[String(obj.studentId)] || {};
   obj.isTeacher = isTeacher;
   obj.authorValue = isTeacher ? '' : (profile.value || '');

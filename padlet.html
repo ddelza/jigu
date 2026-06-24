@@ -76,9 +76,9 @@
     background: var(--card); border: 1px solid var(--line); border-radius: 10px;
     padding: 13px 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(20,30,60,.05);
   }
-  .post-card.persp-eco { background: #e8f8ec; border-color: #bfe6c8; }
-  .post-card.persp-tech { background: #f1eafb; border-color: #d8c5f2; }
-  .post-card.persp-ethic { background: #fff8df; border-color: #f0e1a0; }
+  .post-card.persp-eco { background: #eaf6d6; border-color: #c9e08f; }
+  .post-card.persp-tech { background: #ece3fb; border-color: #cdb6f0; }
+  .post-card.persp-ethic { background: #ffe6cf; border-color: #f3b97a; }
   .post-card.teacher-post { background: #ffe6f0; border-color: #f5b8d2; }
 
   .teacher-badge {
@@ -89,10 +89,17 @@
     font-size: 10.5px; font-weight: bold; color: #3a4a7a; background: #e8edfb;
     border-radius: 999px; padding: 2px 7px; margin-left: 5px; white-space: nowrap;
   }
+  .persp-badge {
+    font-size: 10.5px; font-weight: bold; border-radius: 999px; padding: 2px 7px;
+    margin-left: 5px; white-space: nowrap;
+  }
+  .persp-badge-eco { background: #dff0b8; color: #5a7a1e; }
+  .persp-badge-tech { background: #e2d2f7; color: #6b3fa0; }
+  .persp-badge-ethic { background: #ffd9ac; color: #a8590a; }
 
-  .comment-item.persp-eco { background: #e8f8ec; border-radius: 6px; padding: 4px 6px; }
-  .comment-item.persp-tech { background: #f1eafb; border-radius: 6px; padding: 4px 6px; }
-  .comment-item.persp-ethic { background: #fff8df; border-radius: 6px; padding: 4px 6px; }
+  .comment-item.persp-eco { background: #eaf6d6; border-radius: 6px; padding: 4px 6px; }
+  .comment-item.persp-tech { background: #ece3fb; border-radius: 6px; padding: 4px 6px; }
+  .comment-item.persp-ethic { background: #ffe6cf; border-radius: 6px; padding: 4px 6px; }
   .comment-item.teacher-comment { background: #ffe6f0; border-radius: 6px; padding: 4px 6px; }
 
   .post-meta { font-size: 11.5px; color: var(--sub); margin-bottom: 6px; }
@@ -386,11 +393,18 @@ function commentPerspClass(obj) {
 }
 function nameBadge(obj) {
   if (obj.isTeacher) return ' <span class="teacher-badge">👩‍🏫 교사</span>';
+  var html = '';
   if (obj.authorValue) {
     var label = String(obj.authorValue).split('(')[0].trim();
-    return ' <span class="value-badge">' + escapeHtml(label) + '</span>';
+    html += ' <span class="value-badge">' + escapeHtml(label) + '</span>';
   }
-  return '';
+  if (obj.authorPerspective) {
+    var meta = PERSPECTIVES.filter(function (p) { return p.key === obj.authorPerspective; })[0];
+    if (meta) {
+      html += ' <span class="persp-badge persp-badge-' + meta.cls + '">' + meta.emoji + ' ' + escapeHtml(obj.authorPerspective) + '</span>';
+    }
+  }
+  return html;
 }
 
 function renderCommentActions(post, c) {
