@@ -172,6 +172,9 @@
       <div id="opacity-control">
         🏹 화살표 투명도 <input type="range" id="arrow-opacity" min="5" max="100" value="100">
       </div>
+      <div id="opacity-control">
+        ✨ 강조 표시 정도 <input type="range" id="highlight-intensity" min="0" max="100" value="50">
+      </div>
       <button id="reset-btn">초기화</button>
     </div>
   </header>
@@ -402,6 +405,11 @@ document.getElementById('arrow-opacity').addEventListener('input', (e) => {
   document.documentElement.style.setProperty('--arrow-opacity', e.target.value / 100);
 });
 
+let highlightIntensity = 0.5;
+document.getElementById('highlight-intensity').addEventListener('input', (e) => {
+  highlightIntensity = e.target.value / 100;
+});
+
 function updateProgressDisplay() {
   document.getElementById('edge-count').textContent = edgesMade.length;
   document.getElementById('chain-progress').textContent = maxChainNodes;
@@ -589,11 +597,13 @@ function startHoverHighlight(nodeId) {
   let big = false;
   function tick() {
     big = !big;
-    cardsToPulse.forEach(c => { c.style.transform = big ? 'scale(1.15)' : 'scale(1)'; });
+    const scale = 1 + 0.15 * highlightIntensity;
+    const glowSize = 16 * highlightIntensity;
+    cardsToPulse.forEach(c => { c.style.transform = big ? 'scale(' + scale + ')' : 'scale(1)'; });
     connectedEdges.forEach(ed => {
-      ed.el.style.strokeWidth = big ? '9' : '4';
+      ed.el.style.strokeWidth = big ? (4 + 5 * highlightIntensity) : '4';
       ed.el.style.filter = big
-        ? 'drop-shadow(0 0 16px #fff) drop-shadow(0 0 10px #38e8e0)'
+        ? 'drop-shadow(0 0 ' + glowSize + 'px #fff) drop-shadow(0 0 ' + (glowSize * 0.6) + 'px #38e8e0)'
         : (ed.el.classList.contains('longest-chain') ? 'drop-shadow(0 0 10px #ff9100) drop-shadow(0 0 4px #fff)' : 'drop-shadow(0 0 6px #34d399)');
     });
   }
