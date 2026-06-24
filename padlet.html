@@ -131,6 +131,23 @@
 
   .hidden { display: none !important; }
 
+  /* ===== 로딩 오버레이 ===== */
+  #loadingOverlay {
+    position: fixed; inset: 0; background: rgba(244,246,251,.92); z-index: 500;
+    display: none; align-items: center; justify-content: center;
+  }
+  #loadingOverlay.show { display: flex; }
+  #loadingBox { text-align: center; }
+  #loadingSpinner {
+    width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 50%;
+    border: 6px solid #d9e0f5; border-top-color: var(--accent);
+    animation: loadingSpin .8s linear infinite;
+  }
+  @keyframes loadingSpin { to { transform: rotate(360deg); } }
+  #loadingText {
+    font-size: 28px; font-weight: 900; color: var(--accent); letter-spacing: 1px;
+  }
+
   @media (max-width: 900px) {
     #board { flex-direction: column; }
     .column { max-width: 100%; }
@@ -149,6 +166,14 @@
       <input id="loginName" type="text" placeholder="이름">
       <button id="loginBtn" onclick="login()">입장하기</button>
       <div id="loginMsg"></div>
+    </div>
+  </div>
+
+  <!-- ===== 로딩 오버레이 ===== -->
+  <div id="loadingOverlay">
+    <div id="loadingBox">
+      <div id="loadingSpinner"></div>
+      <div id="loadingText">로딩중...</div>
     </div>
   </div>
 
@@ -208,18 +233,27 @@ var lastPostsJson = '';
 var pollTimer = null;
 var pendingPerspective = '';
 
-function apiGet(params) {
+function showLoading() { document.getElementById('loadingOverlay').classList.add('show'); }
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+
+function apiGet(params, silent) {
+  if (!silent) showLoading();
   var qs = Object.keys(params).map(function (k) {
     return encodeURIComponent(k) + '=' + encodeURIComponent(params[k] == null ? '' : params[k]);
   }).join('&');
-  return fetch(APP_URL + '?' + qs).then(function (r) { return r.json(); });
+  return fetch(APP_URL + '?' + qs).then(function (r) { return r.json(); }).finally(function () {
+    if (!silent) hideLoading();
+  });
 }
-function apiPost(action, payload) {
+function apiPost(action, payload, silent) {
+  if (!silent) showLoading();
   return fetch(APP_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ action: action, payload: payload })
-  }).then(function (r) { return r.json(); });
+  }).then(function (r) { return r.json(); }).finally(function () {
+    if (!silent) hideLoading();
+  });
 }
 
 function escapeHtml(s) {
@@ -365,7 +399,7 @@ function renderPostCard(post) {
 
 // ===================== 데이터 로드(폴링) =====================
 function loadPosts(force) {
-  apiGet({ action: 'getPadletPosts', studentId: studentId }).then(function (res) {
+  apiGet({ action: 'getPadletPosts', studentId: studentId }, !force).then(function (res) {
     if (!res.valid) return;
     var json = JSON.stringify(res.posts);
     if (!force && (composing || json === lastPostsJson)) return;
