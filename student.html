@@ -383,12 +383,21 @@ function renderValue(vs) {
     '</div></div>';
 }
 
+function cleanCellText(s) {
+  s = String(s || '').trim();
+  return (s === '' || s.toUpperCase() === '#N/A') ? '' : s;
+}
+
 function renderPadlet(vs) {
   var card = document.getElementById('padletCard');
   var content = document.getElementById('padletContent');
   card.classList.remove('hidden');
 
-  if (!vs || (!vs.causalAnalysis && !vs.policyProposal && !vs.questionComments)) {
+  var causalAnalysis = vs ? cleanCellText(vs.causalAnalysis) : '';
+  var policyProposal = vs ? cleanCellText(vs.policyProposal) : '';
+  var questionComments = vs ? cleanCellText(vs.questionComments) : '';
+
+  if (!causalAnalysis && !policyProposal && !questionComments) {
     content.innerHTML = '<div class="empty">아직 제출한 기록이 없습니다.</div>';
     return;
   }
@@ -398,7 +407,7 @@ function renderPadlet(vs) {
     return '<span class="point-badge pending">채점 대기중 (' + max + '점)</span>';
   }
 
-  var questions = (vs.questionComments || '').split(' | ').map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
+  var questions = questionComments.split(' | ').map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0 && s.toUpperCase() !== '#N/A'; });
   var questionsHtml = questions.length
     ? questions.map(function (q, i) {
         return '<div class="blank-qa"><div class="blank-a">' + (i + 1) + '. ' + escapeHtml_(q) + '</div></div>';
@@ -407,10 +416,10 @@ function renderPadlet(vs) {
 
   content.innerHTML =
     '<div class="field"><div class="field-label">🔗 문제의 인과적 분석 ' + scoreBadge(vs.causalAnalysisScore, 1) + '</div>' +
-    '<div class="field-value">' + escapeHtml_(vs.causalAnalysis) + '</div></div>' +
+    '<div class="field-value">' + (causalAnalysis ? escapeHtml_(causalAnalysis) : '<span class="empty">아직 작성하지 않았습니다.</span>') + '</div></div>' +
 
     '<div class="field"><div class="field-label">🏛️ 나의 관점에서 정책 제안하기 ' + scoreBadge(vs.policyProposalScore, 2) + '</div>' +
-    '<div class="field-value">' + escapeHtml_(vs.policyProposal) + '</div></div>' +
+    '<div class="field-value">' + (policyProposal ? escapeHtml_(policyProposal) : '<span class="empty">아직 작성하지 않았습니다.</span>') + '</div></div>' +
 
     '<div class="field"><div class="field-label">💬 질문형 댓글 (' + questions.length + '개) ' + scoreBadge(vs.commentScore, 3) + '</div>' +
     questionsHtml + '</div>';
