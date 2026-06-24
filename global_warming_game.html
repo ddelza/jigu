@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>기후 재난 인과관계 배치 게임 — Climate Causality Map</title>
 <style>
   :root {
@@ -81,6 +82,7 @@
   .card.placed {
     position: absolute; width: 168px; padding: 10px 28px 10px 10px;
     cursor: grab; z-index: 2; box-shadow: 0 4px 14px rgba(0,0,0,.5);
+    touch-action: none;
   }
   .card.placed:active { cursor: grabbing; }
   .card.placed.shake { animation: shake .35s; }
@@ -101,7 +103,25 @@
     position: absolute; right: -9px; top: 50%; transform: translateY(-50%);
     width: 18px; height: 18px; border-radius: 50%; background: var(--cyan);
     box-shadow: 0 0 8px var(--cyan); cursor: crosshair; z-index: 3;
-    border: 2px solid #0a0e26;
+    border: 2px solid #0a0e26; touch-action: none;
+  }
+
+  /* ===== 터치(코어스 포인터) 환경: 손가락으로 누르기 쉽게 타깃 확대 ===== */
+  @media (pointer: coarse) {
+    .handle { width: 30px; height: 30px; right: -15px; }
+    .card.placed { padding: 13px 34px 13px 13px; font-size: 13.5px; }
+    #reset-btn { padding: 10px 18px; font-size: 14px; }
+    #opacity-control input[type="range"] { width: 120px; height: 22px; }
+  }
+
+  /* ===== 좁은 화면(휴대폰 등) 대응 ===== */
+  @media (max-width: 760px) {
+    header { flex-direction: column; align-items: stretch; gap: 8px; padding: 8px 12px; }
+    header h1 { font-size: 15px; }
+    header h1 span { font-size: 11px; }
+    #mission { text-align: left; }
+    #palette { width: 130px; }
+    .card { font-size: 11.5px; padding: 7px 8px; }
   }
   .handle:hover { transform: translateY(-50%) scale(1.25); }
 
@@ -390,6 +410,9 @@ function countNodeConnections(nodeId) {
   return { made: made, possible: NODE_POSSIBLE[nodeId] || 0 };
 }
 
+// ===================== 모바일/터치 환경 감지 =====================
+const IS_COARSE_POINTER = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
 // ===================== 상태 =====================
 const placed = {};      // id -> { x, y, el }
 const edgesMade = [];    // { from, to, pathEl }
@@ -450,23 +473,33 @@ function hideTooltip() {
   tooltipEl.classList.remove('show');
 }
 
+let tooltipAutoHideTimer = null;
+function scheduleTooltipAutoHide() {
+  clearTimeout(tooltipAutoHideTimer);
+  tooltipAutoHideTimer = setTimeout(hideTooltip, 2500);
+}
+
 function attachNodeTooltip(el, node) {
   el.addEventListener('pointerenter', e => {
     const conn = countNodeConnections(node.id);
     showTooltip('<div class="tt-title">' + nodeLabel(node) + '</div>' + node.desc +
       '<div class="tt-why">🔗 연결된 인과관계: <b>' + conn.made + '</b>개</div>', e.clientX, e.clientY);
+    if (e.pointerType !== 'mouse') scheduleTooltipAutoHide();
   });
   el.addEventListener('pointermove', e => positionTooltip(e.clientX, e.clientY));
-  el.addEventListener('pointerleave', hideTooltip);
+  el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hideTooltip(); });
 }
 
 function attachEdgeTooltip(el, fromId, toId) {
   const why = EDGE_EXPLANATIONS[fromId + '>' + toId] || '두 현상은 서로 영향을 주고받는 인과관계예요.';
   const html = '<div class="tt-title">' + nodeLabel(NODE_BY_ID[fromId]) + ' ➡️ ' + nodeLabel(NODE_BY_ID[toId]) + '</div>' +
     '<div class="tt-why"><b>왜 그럴까요?</b><br>' + why + '</div>';
-  el.addEventListener('pointerenter', e => showTooltip(html, e.clientX, e.clientY));
+  el.addEventListener('pointerenter', e => {
+    showTooltip(html, e.clientX, e.clientY);
+    if (e.pointerType !== 'mouse') scheduleTooltipAutoHide();
+  });
   el.addEventListener('pointermove', e => positionTooltip(e.clientX, e.clientY));
-  el.addEventListener('pointerleave', hideTooltip);
+  el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hideTooltip(); });
 }
 
 // ===================== 팔레트 렌더 =====================
@@ -639,6 +672,7 @@ function selectIds(ids) {
 const selectBoxEl = document.getElementById('select-box');
 canvasEl.addEventListener('pointerdown', e => {
   if (e.target !== canvasEl) return;
+  if (e.pointerType !== 'mouse') return; // 터치/펜은 빈 캔버스를 드래그하면 화면 패닝(스크롤)이 되도록 그대로 둠
   if (!(e.ctrlKey || e.shiftKey || e.metaKey)) clearSelection();
   const canvasRect = canvasEl.getBoundingClientRect();
   const startX = e.clientX - canvasRect.left, startY = e.clientY - canvasRect.top;
@@ -689,9 +723,23 @@ function startCardDrag(e, id, card) {
   const origPos = {};
   groupIds.forEach(gid => { origPos[gid] = { x: placed[gid].x, y: placed[gid].y }; });
 
+  // 터치/펜 환경: Ctrl/Shift 키가 없으니 길게 누르면 다중 선택 토글 (모바일/크롬북 지원)
+  let longPressFired = false;
+  let longPressTimer = null;
+  if (e.pointerType !== 'mouse') {
+    longPressTimer = setTimeout(() => {
+      if (card.dataset.dragged === '0') {
+        longPressFired = true;
+        toggleSelect(id);
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+    }, 480);
+  }
+
   function move(ev) {
     const dx = ev.clientX - startX, dy = ev.clientY - startY;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) card.dataset.dragged = '1';
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) { card.dataset.dragged = '1'; clearTimeout(longPressTimer); }
+    if (longPressFired) return;
     groupIds.forEach(gid => {
       const p = placed[gid];
       p.x = Math.max(0, origPos[gid].x + dx);
@@ -702,6 +750,7 @@ function startCardDrag(e, id, card) {
     });
   }
   function up() {
+    clearTimeout(longPressTimer);
     document.removeEventListener('pointermove', move);
     document.removeEventListener('pointerup', up);
   }
@@ -771,9 +820,10 @@ function attemptConnect(fromId, toId, targetCardEl) {
     // 클릭으로 끊을 수 있도록 보이지 않는 굵은 히트 영역을 먼저 깔아둠
     const hit = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     hit.setAttribute('stroke', 'transparent');
-    hit.setAttribute('stroke-width', '18');
+    hit.setAttribute('stroke-width', IS_COARSE_POINTER ? '34' : '18');
     hit.style.pointerEvents = 'stroke';
     hit.style.cursor = 'pointer';
+    hit.style.touchAction = 'none';
     svgEl.appendChild(hit);
 
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
