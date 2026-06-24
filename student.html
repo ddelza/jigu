@@ -3,9 +3,28 @@
 <head>
   <base target="_top">
   <style>
+    :root { --alt-bg: #fdf6e9; }
     body { font-family: 'Noto Sans KR', sans-serif; max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; background: #f6f8fa; color: #222; }
     h1 { font-size: 20px; text-align: center; }
-    .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); transition: background .2s; }
+    .card.alt { background: var(--alt-bg); }
+
+    /* ===== 색 배치 테마 선택 ===== */
+    #themePicker {
+      position: fixed; top: 14px; right: 14px; z-index: 50; display: flex; gap: 7px; align-items: center;
+      background: #fff; padding: 7px 10px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    }
+    #themePicker .theme-label { font-size: 12px; color: #888; margin-right: 2px; }
+    #themePicker .swatch {
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+    }
+    #themePicker .swatch.active { border-color: #2d6cdf; }
+    @media (max-width: 600px) {
+      #themePicker { top: 8px; right: 8px; padding: 5px 8px; gap: 5px; }
+      #themePicker .theme-label { display: none; }
+      #themePicker .swatch { width: 18px; height: 18px; }
+    }
     label { display: block; font-weight: bold; margin: 12px 0 6px; }
     input[type=text] { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; }
     button { background: #2d6cdf; color: #fff; border: none; padding: 12px 18px; border-radius: 8px; font-size: 15px; cursor: pointer; margin-top: 14px; }
@@ -59,6 +78,10 @@
   </style>
 </head>
 <body>
+  <div id="themePicker">
+    <span class="theme-label">🎨 카드 색</span>
+  </div>
+
   <h1>📋 내 제출 내용 확인</h1>
 
   <!-- STEP 0: 학번/이름 입력 -->
@@ -87,7 +110,7 @@
   </div>
 
   <!-- STEP 1: 1차시 핵심 개념일지 (본인 분과 + 다른 분과 통합) -->
-  <div id="conceptCard" class="card hidden">
+  <div id="conceptCard" class="card alt hidden">
     <div class="result-title">📝 1차시-핵심 개념일지 (빈칸 채우기)</div>
     <div class="sub-section-title">✏️ 본인 분과</div>
     <div id="ownContent"></div>
@@ -102,7 +125,7 @@
   </div>
 
   <!-- STEP 3: 3차시 지구온난화 긴급회의(패들렛) 제출 결과 -->
-  <div id="padletCard" class="card hidden">
+  <div id="padletCard" class="card alt hidden">
     <div class="result-title">🗂️ 3차시 - 지구온난화 긴급회의</div>
     <div id="padletContent"></div>
   </div>
@@ -115,6 +138,39 @@
 
 <script>
 var APP_URL = 'https://script.google.com/macros/s/AKfycbwWjFVmcxHzg0GUIbySHl2orXll2siH1I5oAeZNP8VWmYSaVbQ5YOlYEe1o7X7-KcHQ/exec';
+
+// ===================== 카드 색 배치 테마 =====================
+var ALT_THEMES = [
+  { name: '베이지', color: '#fdf6e9' },
+  { name: '라벤더', color: '#f1eefb' },
+  { name: '민트', color: '#e9f7f0' },
+  { name: '피치', color: '#fdeee6' },
+  { name: '스카이블루', color: '#eaf3fb' }
+];
+
+function applyTheme(color) {
+  document.documentElement.style.setProperty('--alt-bg', color);
+  localStorage.setItem('studentAltBg', color);
+  document.querySelectorAll('#themePicker .swatch').forEach(function (el) {
+    el.classList.toggle('active', el.dataset.color === color);
+  });
+}
+
+function renderThemePicker() {
+  var picker = document.getElementById('themePicker');
+  var savedColor = localStorage.getItem('studentAltBg') || ALT_THEMES[0].color;
+  ALT_THEMES.forEach(function (t) {
+    var sw = document.createElement('div');
+    sw.className = 'swatch' + (t.color === savedColor ? ' active' : '');
+    sw.style.background = t.color;
+    sw.title = t.name;
+    sw.dataset.color = t.color;
+    sw.onclick = function () { applyTheme(t.color); };
+    picker.appendChild(sw);
+  });
+  applyTheme(savedColor);
+}
+renderThemePicker();
 
 var SECTION_TITLES = {
   '1': '🌍 복사 평형 분과',
