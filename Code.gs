@@ -4,6 +4,7 @@ var SHEET_NAME = '제출현황';
 var LEARNING_SHEET_NAME = '제출현황2'; // learning.html(친구 발표 듣기) 제출 기록
 var VALUE_SHEET_NAME = '인과 제출 및 가치관점'; // student_value.html 제출 기록
 var DRAFT_SHEET_NAME = '임시저장'; // student_value.html 임시저장(이어쓰기) 기록
+var PADLET_SHEET_NAME = 'padlet'; // padlet.html(관점별 게시판) 게시물 기록
 var PASSWORD_SHEET_ID = '1JcgoufQUypJR6ItEBGWR7xVE-e1vBqXqfYddkEgXlJg'; // student.html 접속 시 본인 확인용 비밀번호가 있는 스프레드시트 (학번/비밀번호 탭)
 
 // 분과별 정답 (여러 정답 허용: 배열로 등록, 공백/대소문자 무시 비교)
@@ -79,6 +80,10 @@ function doGet(e) {
     result = checkValueAlreadySubmitted(e.parameter.studentId, e.parameter.studentName);
   } else if (action === 'getDraft') {
     result = getDraft(e.parameter.studentId, e.parameter.studentName);
+  } else if (action === 'verifyStudentOnly') {
+    result = { valid: verifyStudent_(e.parameter.studentId, e.parameter.studentName) };
+  } else if (action === 'getPadletPosts') {
+    result = getPadletPosts(e.parameter.studentId);
   } else {
     result = { error: 'unknown action' };
   }
@@ -97,6 +102,12 @@ function doPost(e) {
     result = submitValuePerspective(body.payload);
   } else if (body.action === 'saveDraft') {
     result = saveDraft(body.payload);
+  } else if (body.action === 'submitPadletPost') {
+    result = submitPadletPost(body.payload);
+  } else if (body.action === 'togglePadletReaction') {
+    result = togglePadletReaction(body.payload);
+  } else if (body.action === 'addPadletComment') {
+    result = addPadletComment(body.payload);
   } else {
     result = { error: 'unknown action' };
   }
@@ -570,4 +581,152 @@ function submitValuePerspective(payload) {
   if (draftRow !== -1) draftSheet.deleteRow(draftRow);
 
   return { success: true };
+}
+
+// ===================== padlet.html (관점별 게시판) =====================
+var PADLET_PERSPECTIVES = ['경제적 관점', '기술적 관점', '윤리적 관점'];
+
+function getPadletSheet_() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(PADLET_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(PADLET_SHEET_NAME);
+    sheet.appendRow(['게시ID', '제출시각', '학번', '이름', '관점', '인과관계설명', '정책', '좋아요수', '궁금해요수', '반응기록JSON', '댓글JSON']);
+  }
+  return sheet;
+}
+
+function safeParseJson_(str, fallback) {
+  try {
+    if (!str) return fallback;
+    return JSON.parse(str);
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function findPadletRow_(sheet, postId) {
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(postId)) return i + 1; // 1-based
+  }
+  return -1;
+}
+
+// 클라이언트(padlet.html)에서 호출: 전체 게시물 + (있다면) 내 반응 상태 포함해 반환
+function getPadletPosts(studentId) {
+  var sheet = getPadletSheet_();
+  var data = sheet.getDataRange().getValues();
+  var posts = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0]) continue;
+    var reactions = safeParseJson_(row[9], {});
+    posts.push({
+      id: row[0],
+      timestamp: Utilities.formatDate(new Date(row[1]), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
+      studentId: row[2],
+      studentName: row[3],
+      perspective: row[4],
+      causal: row[5],
+      policy: row[6],
+      likeCount: Number(row[7]) || 0,
+      curiousCount: Number(row[8]) || 0,
+      myReaction: (studentId && reactions[studentId]) ? reactions[studentId] : null,
+      comments: safeParseJson_(row[10], [])
+    });
+  }
+  posts.sort(function (a, b) { return a.id < b.id ? 1 : -1; }); // 최신 게시물이 위로
+  return { valid: true, posts: posts };
+}
+
+// 게시물 등록
+function submitPadletPost(payload) {
+  if (!verifyStudent_(payload.studentId, payload.studentName)) {
+    return { success: false, message: '학번 또는 이름이 명단과 일치하지 않습니다.' };
+  }
+  if (PADLET_PERSPECTIVES.indexOf(payload.perspective) === -1) {
+    return { success: false, message: '관점을 올바르게 선택해주세요.' };
+  }
+  if (!payload.causal || payload.causal.trim().length < 10) {
+    return { success: false, message: '인과관계 설명을 좀 더 구체적으로 작성해주세요. (10자 이상)' };
+  }
+  if (!payload.policy || payload.policy.trim().length < 10) {
+    return { success: false, message: '정책 제안을 좀 더 구체적으로 작성해주세요. (10자 이상)' };
+  }
+
+  var sheet = getPadletSheet_();
+  var id = 'P' + new Date().getTime() + Math.floor(Math.random() * 1000);
+  sheet.appendRow([
+    id, new Date(), payload.studentId, payload.studentName,
+    payload.perspective, payload.causal.trim(), payload.policy.trim(),
+    0, 0, '{}', '[]'
+  ]);
+  return { success: true, id: id };
+}
+
+// 반응(좋아요/궁금해요) 토글 — 학생 1명당 게시물 1개에 반응 1개만 가능, 같은 반응 다시 누르면 취소
+function togglePadletReaction(payload) {
+  if (!verifyStudent_(payload.studentId, payload.studentName)) {
+    return { success: false, message: '학번 또는 이름이 명단과 일치하지 않습니다.' };
+  }
+  if (['like', 'curious'].indexOf(payload.type) === -1) {
+    return { success: false, message: '잘못된 반응 종류입니다.' };
+  }
+
+  var sheet = getPadletSheet_();
+  var rowNum = findPadletRow_(sheet, payload.postId);
+  if (rowNum === -1) return { success: false, message: '게시물을 찾을 수 없습니다.' };
+
+  var row = sheet.getRange(rowNum, 1, 1, 11).getValues()[0];
+  var likeCount = Number(row[7]) || 0;
+  var curiousCount = Number(row[8]) || 0;
+  var reactions = safeParseJson_(row[9], {});
+
+  var prev = reactions[payload.studentId];
+  if (prev === payload.type) {
+    delete reactions[payload.studentId];
+    if (payload.type === 'like') likeCount--; else curiousCount--;
+  } else {
+    if (prev === 'like') likeCount--;
+    if (prev === 'curious') curiousCount--;
+    reactions[payload.studentId] = payload.type;
+    if (payload.type === 'like') likeCount++; else curiousCount++;
+  }
+  likeCount = Math.max(0, likeCount);
+  curiousCount = Math.max(0, curiousCount);
+
+  sheet.getRange(rowNum, 8, 1, 3).setValues([[likeCount, curiousCount, JSON.stringify(reactions)]]);
+
+  return {
+    success: true,
+    likeCount: likeCount,
+    curiousCount: curiousCount,
+    myReaction: reactions[payload.studentId] || null
+  };
+}
+
+// 댓글 추가 (질문형 댓글 — 의미있는 댓글 2개 이상 작성 시 선생님이 점수 부여, 댓글마다 학번이 저장되어 추후 집계 가능)
+function addPadletComment(payload) {
+  if (!verifyStudent_(payload.studentId, payload.studentName)) {
+    return { success: false, message: '학번 또는 이름이 명단과 일치하지 않습니다.' };
+  }
+  if (!payload.text || payload.text.trim().length < 2) {
+    return { success: false, message: '댓글 내용을 입력해주세요.' };
+  }
+
+  var sheet = getPadletSheet_();
+  var rowNum = findPadletRow_(sheet, payload.postId);
+  if (rowNum === -1) return { success: false, message: '게시물을 찾을 수 없습니다.' };
+
+  var comments = safeParseJson_(sheet.getRange(rowNum, 11).getValue(), []);
+  comments.push({
+    studentId: payload.studentId,
+    studentName: payload.studentName,
+    text: payload.text.trim(),
+    time: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm')
+  });
+  sheet.getRange(rowNum, 11).setValue(JSON.stringify(comments));
+
+  return { success: true, comments: comments };
 }
