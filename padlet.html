@@ -91,6 +91,10 @@
   .comment-item { font-size: 12.5px; margin-bottom: 6px; line-height: 1.45; }
   .comment-item b { color: var(--text); }
   .comment-item .ctime { color: #aab1c0; font-size: 11px; margin-left: 4px; }
+  .comment-item.reply { margin-left: 18px; color: #555; }
+  .comment-action { font-size: 11px; color: var(--accent); cursor: pointer; margin-left: 4px; }
+  .comment-action.danger { color: #c0392b; }
+  .comment-input-row.reply-input { margin-left: 18px; }
   .comment-input-row { display: flex; gap: 6px; margin-top: 6px; }
   .comment-input-row input {
     flex: 1; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; font-size: 12.5px;
@@ -168,7 +172,7 @@
       <label>(1) 선택한 인과관계 설명하기
         <span class="label-hint">인과관계 배치 게임의 3단계(기상 재난) 또는 4단계(삶과 사회의 위협) 문제를 하나 선택하고, &lt;화석연료 사용&gt;으로부터 출발해서 그 문제가 발생하는 인과관계를 줄글로 서술하세요.</span>
       </label>
-      <textarea id="causalInput" placeholder="예) 지구 온난화로 북극 기온이 급상승하면서 → ... → 결국 ○○○ 문제가 발생합니다."></textarea>
+      <textarea id="causalInput" placeholder="예) 화석연료 사용으로 온실기체 배출량이 급증하고 지구 온난화가 심해지면서 → ... → 결국 ○○○ 문제가 발생합니다."></textarea>
 
       <label>(2) 내가 미국 대통령이라면?
         <span class="label-hint">내가 미국 대통령이고, 내가 선택한 관점(경제적/기술적/윤리적)에서 이 문제를 해결한다면 어떤 정책을 펼칠 수 있을까요?</span>
@@ -198,6 +202,7 @@ var studentId = '';
 var studentName = '';
 var currentPosts = [];
 var expandedComments = {};
+var expandedReplyFor = {};
 var composing = false;
 var lastPostsJson = '';
 var pollTimer = null;
@@ -293,17 +298,49 @@ function renderBoard(posts) {
   });
 }
 
+function renderCommentActions(post, c) {
+  var actions = '<span class="comment-action" onclick="toggleReplyBox(\'' + c.id + '\')">답글</span>';
+  if (c.studentId === studentId) {
+    actions += ' <span class="comment-action danger" onclick="deleteComment(\'' + post.id + '\',\'' + c.id + '\')">삭제</span>';
+  }
+  return actions;
+}
+
+function renderReplyBox(post, parentId) {
+  if (!expandedReplyFor[parentId]) return '';
+  return '<div class="comment-input-row reply-input">' +
+    '<input type="text" id="reply-input-' + parentId + '" placeholder="답글을 남겨보세요" onkeydown="if(event.key===\'Enter\')submitReply(\'' + post.id + '\',\'' + parentId + '\')" onfocus="composing=true" onblur="composing=false">' +
+    '<button onclick="submitReply(\'' + post.id + '\',\'' + parentId + '\')">등록</button>' +
+  '</div>';
+}
+
+function renderComments(post) {
+  var topLevel = post.comments.filter(function (c) { return !c.parentId; });
+  if (topLevel.length === 0) {
+    return '<div style="font-size:12px;color:var(--sub);">아직 댓글이 없어요. 질문을 남겨보세요!</div>';
+  }
+  return topLevel.map(function (c) {
+    var replies = post.comments.filter(function (r) { return r.parentId === c.id; });
+    var html = '<div class="comment-item">💬 <b>' + escapeHtml(c.studentName) + '</b>: ' +
+      escapeHtml(c.text) + '<span class="ctime">' + escapeHtml(c.time) + '</span> ' +
+      renderCommentActions(post, c) + '</div>';
+    html += replies.map(function (r) {
+      return '<div class="comment-item reply">↳ <b>' + escapeHtml(r.studentName) + '</b>: ' +
+        escapeHtml(r.text) + '<span class="ctime">' + escapeHtml(r.time) + '</span> ' +
+        renderCommentActions(post, r) + '</div>';
+    }).join('');
+    html += renderReplyBox(post, c.id);
+    return html;
+  }).join('');
+}
+
 function renderPostCard(post) {
   var expanded = !!expandedComments[post.id];
+  var totalCommentCount = post.comments.length;
   var commentsHtml = '';
   if (expanded) {
     commentsHtml = '<div class="comment-box">' +
-      (post.comments.length === 0
-        ? '<div style="font-size:12px;color:var(--sub);">아직 댓글이 없어요. 질문을 남겨보세요!</div>'
-        : post.comments.map(function (c) {
-            return '<div class="comment-item">💬 <b>' + escapeHtml(c.studentName) + '</b>: ' +
-              escapeHtml(c.text) + '<span class="ctime">' + escapeHtml(c.time) + '</span></div>';
-          }).join('')) +
+      renderComments(post) +
       '<div class="comment-input-row">' +
         '<input type="text" id="comment-input-' + post.id + '" placeholder="질문형 댓글을 남겨보세요" onkeydown="if(event.key===\'Enter\')submitComment(\'' + post.id + '\')" onfocus="composing=true" onblur="composing=false">' +
         '<button onclick="submitComment(\'' + post.id + '\')">등록</button>' +
@@ -321,7 +358,7 @@ function renderPostCard(post) {
       '<button class="react-btn like' + (post.myReaction === 'like' ? ' active like' : '') + '" onclick="react(\'' + post.id + '\',\'like\')">👍 좋아요 ' + post.likeCount + '</button>' +
       '<button class="react-btn curious' + (post.myReaction === 'curious' ? ' active curious' : '') + '" onclick="react(\'' + post.id + '\',\'curious\')">🤔 궁금해요 ' + post.curiousCount + '</button>' +
     '</div>' +
-    '<div class="comment-toggle" onclick="toggleComments(\'' + post.id + '\')">💬 댓글 ' + post.comments.length + '개 ' + (expanded ? '숨기기 ▲' : '보기 ▼') + '</div>' +
+    '<div class="comment-toggle" onclick="toggleComments(\'' + post.id + '\')">💬 댓글 ' + totalCommentCount + '개 ' + (expanded ? '숨기기 ▲' : '보기 ▼') + '</div>' +
     commentsHtml +
   '</div>';
 }
@@ -399,6 +436,39 @@ function submitComment(postId) {
     if (!res.success) { alert(res.message || '댓글 등록에 실패했습니다.'); return; }
     currentPosts.forEach(function (p) { if (p.id === postId) p.comments = res.comments; });
     composing = false;
+    renderBoard(currentPosts);
+    lastPostsJson = JSON.stringify(currentPosts);
+  }).catch(function () { alert('서버 연결에 실패했습니다.'); });
+}
+
+function toggleReplyBox(commentId) {
+  expandedReplyFor[commentId] = !expandedReplyFor[commentId];
+  renderBoard(currentPosts);
+}
+
+function submitReply(postId, parentId) {
+  var input = document.getElementById('reply-input-' + parentId);
+  var text = input.value.trim();
+  if (text.length < 2) return;
+  apiPost('addPadletComment', {
+    studentId: studentId, studentName: studentName, postId: postId, text: text, parentId: parentId
+  }).then(function (res) {
+    if (!res.success) { alert(res.message || '답글 등록에 실패했습니다.'); return; }
+    currentPosts.forEach(function (p) { if (p.id === postId) p.comments = res.comments; });
+    composing = false;
+    expandedReplyFor[parentId] = false;
+    renderBoard(currentPosts);
+    lastPostsJson = JSON.stringify(currentPosts);
+  }).catch(function () { alert('서버 연결에 실패했습니다.'); });
+}
+
+function deleteComment(postId, commentId) {
+  if (!confirm('이 댓글을 삭제할까요? (답글이 있다면 함께 삭제됩니다)')) return;
+  apiPost('deletePadletComment', {
+    studentId: studentId, studentName: studentName, postId: postId, commentId: commentId
+  }).then(function (res) {
+    if (!res.success) { alert(res.message || '댓글 삭제에 실패했습니다.'); return; }
+    currentPosts.forEach(function (p) { if (p.id === postId) p.comments = res.comments; });
     renderBoard(currentPosts);
     lastPostsJson = JSON.stringify(currentPosts);
   }).catch(function () { alert('서버 연결에 실패했습니다.'); });

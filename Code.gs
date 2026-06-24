@@ -108,6 +108,8 @@ function doPost(e) {
     result = togglePadletReaction(body.payload);
   } else if (body.action === 'addPadletComment') {
     result = addPadletComment(body.payload);
+  } else if (body.action === 'deletePadletComment') {
+    result = deletePadletComment(body.payload);
   } else {
     result = { error: 'unknown action' };
   }
@@ -706,7 +708,37 @@ function togglePadletReaction(payload) {
   };
 }
 
-// 댓글 추가 (질문형 댓글 — 의미있는 댓글 2개 이상 작성 시 선생님이 점수 부여, 댓글마다 학번이 저장되어 추후 집계 가능)
+// padlet 댓글 집계 탭: 학생별로 댓글을 모아서 선생님이 점수 매기기 쉽게 만든 탭
+var PADLET_COMMENT_SHEET_NAME = 'padlet 댓글';
+
+function getPadletCommentSheet_() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(PADLET_COMMENT_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(PADLET_COMMENT_SHEET_NAME);
+    sheet.appendRow(['작성시각', '학번', '이름', '게시ID', '댓글ID', '부모댓글ID', '구분', '댓글내용']);
+  }
+  return sheet;
+}
+
+function appendPadletCommentRow_(postId, comment) {
+  var sheet = getPadletCommentSheet_();
+  sheet.appendRow([
+    comment.time, comment.studentId, comment.studentName, postId,
+    comment.id, comment.parentId || '', comment.parentId ? '대댓글' : '댓글', comment.text
+  ]);
+}
+
+// commentId(및 그 답글들)에 해당하는 행을 'padlet 댓글' 탭에서 삭제
+function removePadletCommentRows_(commentIds) {
+  var sheet = getPadletCommentSheet_();
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (commentIds.indexOf(String(data[i][4])) !== -1) sheet.deleteRow(i + 1);
+  }
+}
+
+// 댓글/대댓글 추가 (질문형 댓글 — 의미있는 댓글 2개 이상 작성 시 선생님이 점수 부여, 댓글마다 학번이 저장되어 'padlet 댓글' 탭에서 집계 가능)
 function addPadletComment(payload) {
   if (!verifyStudent_(payload.studentId, payload.studentName)) {
     return { success: false, message: '학번 또는 이름이 명단과 일치하지 않습니다.' };
@@ -720,13 +752,50 @@ function addPadletComment(payload) {
   if (rowNum === -1) return { success: false, message: '게시물을 찾을 수 없습니다.' };
 
   var comments = safeParseJson_(sheet.getRange(rowNum, 11).getValue(), []);
-  comments.push({
+  var comment = {
+    id: 'C' + new Date().getTime() + Math.floor(Math.random() * 1000),
+    parentId: payload.parentId || null,
     studentId: payload.studentId,
     studentName: payload.studentName,
     text: payload.text.trim(),
     time: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm')
-  });
+  };
+  comments.push(comment);
   sheet.getRange(rowNum, 11).setValue(JSON.stringify(comments));
+  appendPadletCommentRow_(payload.postId, comment);
+
+  return { success: true, comments: comments };
+}
+
+// 본인이 작성한 댓글/대댓글 삭제 (대댓글이 달린 댓글을 지우면 대댓글도 함께 삭제)
+function deletePadletComment(payload) {
+  if (!verifyStudent_(payload.studentId, payload.studentName)) {
+    return { success: false, message: '학번 또는 이름이 명단과 일치하지 않습니다.' };
+  }
+
+  var sheet = getPadletSheet_();
+  var rowNum = findPadletRow_(sheet, payload.postId);
+  if (rowNum === -1) return { success: false, message: '게시물을 찾을 수 없습니다.' };
+
+  var comments = safeParseJson_(sheet.getRange(rowNum, 11).getValue(), []);
+  var target = null;
+  for (var i = 0; i < comments.length; i++) {
+    if (comments[i].id === payload.commentId) { target = comments[i]; break; }
+  }
+  if (!target) return { success: false, message: '댓글을 찾을 수 없습니다.' };
+  if (String(target.studentId) !== String(payload.studentId)) {
+    return { success: false, message: '본인이 작성한 댓글만 삭제할 수 있습니다.' };
+  }
+
+  var removedIds = [payload.commentId];
+  comments = comments.filter(function (c) {
+    if (c.id === payload.commentId) return false;
+    if (c.parentId === payload.commentId) { removedIds.push(c.id); return false; }
+    return true;
+  });
+
+  sheet.getRange(rowNum, 11).setValue(JSON.stringify(comments));
+  removePadletCommentRows_(removedIds);
 
   return { success: true, comments: comments };
 }
