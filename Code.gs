@@ -392,12 +392,12 @@ function getMySubmissions(studentId, studentName, password) {
   return { valid: true, own: own, learning: learning, valueScore: getValuePerspectiveScore_(studentId) };
 }
 
-// "학생별" 탭의 S~AF열(인과사슬/가치/관점/이유 내용 + 점수, 3차시 패들렛 제출 내용 + 점수)을 읽어서 반환
+// "학생별" 탭의 S~AL열(인과사슬/가치/관점/이유 + 점수, 3차시 패들렛 제출 + 점수, 마지막 차시 성찰일지 + 점수)을 읽어서 반환
 function getValuePerspectiveScore_(studentId) {
   var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
   if (!sheet) return null;
 
-  var data = sheet.getRange(1, 1, sheet.getLastRow(), 32).getValues(); // A~AF열
+  var data = sheet.getRange(1, 1, sheet.getLastRow(), 38).getValues(); // A~AL열
   for (var i = 0; i < data.length; i++) {
     if (String(data[i][0]).trim() === String(studentId).trim()) {
       var row = data[i];
@@ -414,7 +414,13 @@ function getValuePerspectiveScore_(studentId) {
         questionComments: row[28] || '',    // AC열: 질문형 댓글 (" | "로 textjoin 되어 있음)
         causalAnalysisScore: row[29],        // AD열
         policyProposalScore: row[30],        // AE열
-        commentScore: row[31]                // AF열
+        commentScore: row[31],               // AF열
+        reflectionKnowledge: row[32] || '',          // AG열: 알게 된 것
+        reflectionPerspectiveChange: row[33] || '',  // AH열: 관점의 변화
+        reflectionCommitment: row[34] || '',         // AI열: 실천 다짐
+        reflectionKnowledgeScore: row[35],            // AJ열
+        reflectionPerspectiveChangeScore: row[36],    // AK열
+        reflectionCommitmentScore: row[37]            // AL열
       };
     }
   }
