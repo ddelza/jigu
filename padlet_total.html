@@ -412,7 +412,7 @@ function nameBadge(obj) {
 
 function renderCommentActions(post, c) {
   var actions = '<span class="comment-action" onclick="toggleReplyBox(\'' + c.id + '\')">답글</span>';
-  if (c.studentId === studentId) {
+  if (String(c.studentId) === String(studentId)) {
     actions += ' <span class="comment-action danger" onclick="deleteComment(\'' + post.id + '\',\'' + c.id + '\')">삭제</span>';
   }
   return actions;
@@ -460,7 +460,7 @@ function renderPostCard(post) {
     '</div>';
   }
 
-  var editLink = (post.studentId === studentId)
+  var editLink = (String(post.studentId) === String(studentId))
     ? ' <span class="comment-action" onclick="openEditModal(\'' + post.id + '\')">✏️ 수정</span>'
     : '';
 
