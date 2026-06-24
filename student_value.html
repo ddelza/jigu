@@ -109,6 +109,7 @@
 
 <script>
 var APP_URL = 'https://script.google.com/macros/s/AKfycbwWjFVmcxHzg0GUIbySHl2orXll2siH1I5oAeZNP8VWmYSaVbQ5YOlYEe1o7X7-KcHQ/exec';
+var isEditMode = false;
 
 var VALUES = [
   { emoji: '🛡️', name: '안전', eng: 'Safety', desc: '어떠한 거대한 재난 앞에서도 사람들의 생명과 건강이 다치지 않게 최우선으로 보호받아야 한다고 생각합니다.' },
@@ -175,13 +176,16 @@ function goToForm() {
     btn.disabled = false;
     if (!res.valid) {
       msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
-    } else if (res.submitted) {
-      msg.innerHTML = '<div class="msg error">이미 제출한 기록이 있습니다. 한 명당 한 번만 제출 가능합니다.</div>';
     } else {
       msg.innerHTML = '';
       document.getElementById('step0').classList.add('hidden');
       document.getElementById('step1').classList.remove('hidden');
+      isEditMode = !!res.submitted;
       if (res.draft) fillDraft(res.draft);
+      if (isEditMode) {
+        document.getElementById('submit-btn').textContent = '✏️ 수정 제출하기';
+        document.getElementById('save-msg').innerHTML = '<div class="msg success">✏️ 이미 제출한 내용을 불러왔습니다. 수정 후 "수정 제출하기"를 눌러주세요.</div>';
+      }
     }
   }).catch(function (err) {
     btn.disabled = false;
@@ -265,6 +269,10 @@ function submitAll() {
   apiPost({ action: 'submitValue', payload: payload }).then(function (res) {
     if (res.success) {
       document.getElementById('step1').classList.add('hidden');
+      if (isEditMode) {
+        document.getElementById('thanks').querySelector('h2').textContent = '✅ 수정 완료!';
+        document.getElementById('thanks').querySelector('p').textContent = '나의 인과 사슬과 가치 관점이 새로운 내용으로 수정되었습니다.';
+      }
       document.getElementById('thanks').classList.remove('hidden');
     } else {
       msg.innerHTML = '<div class="msg error">' + res.message + '</div>';

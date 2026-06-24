@@ -448,13 +448,10 @@ function checkValueAlreadySubmitted(studentId, studentName) {
 
   if (rowNum !== -1) {
     var row = sheet.getRange(rowNum, 1, 1, 7).getValues()[0];
-    if (isValueRowComplete_(row)) {
-      return { valid: true, submitted: true };
-    }
-    // 일부 칸이 비어있음 -> 제출 시트의 남은 내용을 불러와 이어서 작성하게 함
+    // 이미 제출을 완료했어도 내용을 불러와 수정할 수 있게 함 (submitted 플래그로 프론트에서 "수정" 안내만 표시)
     return {
       valid: true,
-      submitted: false,
+      submitted: isValueRowComplete_(row),
       draft: {
         causalChain: row[3] || '',
         value: row[4] || '',
@@ -541,9 +538,7 @@ function submitValuePerspective(payload) {
   if (!already.valid) {
     return { success: false, message: already.message };
   }
-  if (already.submitted) {
-    return { success: false, message: '이미 제출한 기록이 있습니다. 한 명당 한 번만 제출 가능합니다.' };
-  }
+  // 이미 제출했어도 막지 않고 같은 행을 덮어써서 수정할 수 있게 함 (findValueRow_가 기존 행을 찾아 overwrite)
 
   if (!payload.causalChain || payload.causalChain.trim().length < 5) {
     return { success: false, message: '가장 긴 인과 사슬을 화살표로 옮겨 적어주세요.' };
