@@ -388,12 +388,12 @@ function getMySubmissions(studentId, studentName, password) {
   return { valid: true, own: own, learning: learning, valueScore: getValuePerspectiveScore_(studentId) };
 }
 
-// "학생별" 탭의 S~Y열(인과사슬/가치/관점/이유 내용 + W,X,Y 점수)을 읽어서 반환
+// "학생별" 탭의 S~AF열(인과사슬/가치/관점/이유 내용 + 점수, 3차시 패들렛 제출 내용 + 점수)을 읽어서 반환
 function getValuePerspectiveScore_(studentId) {
   var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
   if (!sheet) return null;
 
-  var data = sheet.getRange(1, 1, sheet.getLastRow(), 25).getValues(); // A~Y열
+  var data = sheet.getRange(1, 1, sheet.getLastRow(), 32).getValues(); // A~AF열
   for (var i = 0; i < data.length; i++) {
     if (String(data[i][0]).trim() === String(studentId).trim()) {
       var row = data[i];
@@ -404,7 +404,13 @@ function getValuePerspectiveScore_(studentId) {
         reason: row[21] || '',        // V열
         scoreCausal: row[22],         // W열
         scoreReasonImportance: row[23], // X열
-        scoreReasonConnection: row[24]  // Y열
+        scoreReasonConnection: row[24],  // Y열
+        causalAnalysis: row[26] || '',      // AA열: 문제의 인과적 분석
+        policyProposal: row[27] || '',      // AB열: 나의 관점에서 정책 제안하기
+        questionComments: row[28] || '',    // AC열: 질문형 댓글 (" | "로 textjoin 되어 있음)
+        causalAnalysisScore: row[29],        // AD열
+        policyProposalScore: row[30],        // AE열
+        commentScore: row[31]                // AF열
       };
     }
   }

@@ -15,6 +15,8 @@
     .msg.error { background: #ffe5e5; color: #b00000; }
     .msg.success { background: #e3f7e8; color: #1a7a36; }
     .step-label { font-size: 13px; color: #777; margin-bottom: 6px; }
+    .sub-section-title { font-size: 14px; font-weight: bold; color: #2d6cdf; margin: 18px 0 8px; border-top: 1px dashed #e2e6f0; padding-top: 14px; }
+    .sub-section-title:first-of-type { margin-top: 4px; border-top: none; padding-top: 0; }
     .result-title { font-size: 16px; font-weight: bold; margin-bottom: 8px; }
     .meta { font-size: 12px; color: #888; margin-bottom: 10px; }
     .field { margin-bottom: 12px; }
@@ -84,22 +86,25 @@
     <div class="score-list" id="scoreList"></div>
   </div>
 
-  <!-- STEP 1: 본인 핵심 개념일지 제출 결과 -->
-  <div id="ownCard" class="card hidden">
-    <div class="result-title">📝 1차 핵심 개념일지 (본인 발표 분과)</div>
+  <!-- STEP 1: 1차시 핵심 개념일지 (본인 분과 + 다른 분과 통합) -->
+  <div id="conceptCard" class="card hidden">
+    <div class="result-title">📝 1차시-핵심 개념일지 (빈칸 채우기)</div>
+    <div class="sub-section-title">✏️ 본인 분과</div>
     <div id="ownContent"></div>
-  </div>
-
-  <!-- STEP 2: 친구 발표 청취 제출 결과 -->
-  <div id="learningCard" class="card hidden">
-    <div class="result-title">👂 친구 발표 청취 핵심 개념일지</div>
+    <div class="sub-section-title">👂 다른 분과</div>
     <div id="learningContent"></div>
   </div>
 
-  <!-- STEP 3: 인과 사슬 & 가치 관점 제출 결과 -->
+  <!-- STEP 2: 인과 사슬 & 가치 관점 제출 결과 -->
   <div id="valueCard" class="card hidden">
-    <div class="result-title">🔺 인과 사슬 & 가치 관점</div>
+    <div class="result-title">🔺 2차시-인과 사슬 작성 & 가치 관점 선택</div>
     <div id="valueContent"></div>
+  </div>
+
+  <!-- STEP 3: 3차시 지구온난화 긴급회의(패들렛) 제출 결과 -->
+  <div id="padletCard" class="card hidden">
+    <div class="result-title">🗂️ 3차시 - 지구온난화 긴급회의</div>
+    <div id="padletContent"></div>
   </div>
 
 <script>
@@ -242,6 +247,7 @@ function loadMySubmissions() {
     renderOwn(res.own);
     renderLearning(res.learning);
     renderValue(res.valueScore);
+    renderPadlet(res.valueScore);
   }).catch(function (err) {
     btn.disabled = false;
     msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
@@ -276,7 +282,10 @@ function renderScore(own, learning, valueScore) {
   var gradedItems = [
     { label: '기후위기 인과 찾기', score: valueScore && valueScore.scoreCausal, max: 2 },
     { label: '나의 가치가 중요한 이유 서술', score: valueScore && valueScore.scoreReasonImportance, max: 2 },
-    { label: '나의 가치와 기후위기 해결 관점 연결', score: valueScore && valueScore.scoreReasonConnection, max: 2 }
+    { label: '나의 가치와 기후위기 해결 관점 연결', score: valueScore && valueScore.scoreReasonConnection, max: 2 },
+    { label: '문제의 인과적 분석 (3차시)', score: valueScore && valueScore.causalAnalysisScore, max: 1 },
+    { label: '나의 관점에서 정책 제안하기 (3차시)', score: valueScore && valueScore.policyProposalScore, max: 2 },
+    { label: '질문형 댓글 (3차시)', score: valueScore && valueScore.commentScore, max: 3 }
   ];
   gradedItems.forEach(function (it) {
     max += it.max;
@@ -302,7 +311,7 @@ function renderScore(own, learning, valueScore) {
 }
 
 function renderOwn(own) {
-  var card = document.getElementById('ownCard');
+  var card = document.getElementById('conceptCard');
   var content = document.getElementById('ownContent');
   card.classList.remove('hidden');
 
@@ -322,7 +331,7 @@ function renderOwn(own) {
 }
 
 function renderLearning(learning) {
-  var card = document.getElementById('learningCard');
+  var card = document.getElementById('conceptCard');
   var content = document.getElementById('learningContent');
   card.classList.remove('hidden');
 
@@ -372,6 +381,39 @@ function renderValue(vs) {
       '가치가 중요한 이유 ' + scoreBadge(vs.scoreReasonImportance, 2) + '&nbsp;&nbsp;' +
       '가치-관점 연결 ' + scoreBadge(vs.scoreReasonConnection, 2) +
     '</div></div>';
+}
+
+function renderPadlet(vs) {
+  var card = document.getElementById('padletCard');
+  var content = document.getElementById('padletContent');
+  card.classList.remove('hidden');
+
+  if (!vs || (!vs.causalAnalysis && !vs.policyProposal && !vs.questionComments)) {
+    content.innerHTML = '<div class="empty">아직 제출한 기록이 없습니다.</div>';
+    return;
+  }
+
+  function scoreBadge(score, max) {
+    if (isGradedNumber(score)) return '<span class="point-badge got">✅ ' + Number(score) + '점 / ' + max + '점</span>';
+    return '<span class="point-badge pending">채점 대기중 (' + max + '점)</span>';
+  }
+
+  var questions = (vs.questionComments || '').split(' | ').map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
+  var questionsHtml = questions.length
+    ? questions.map(function (q, i) {
+        return '<div class="blank-qa"><div class="blank-a">' + (i + 1) + '. ' + escapeHtml_(q) + '</div></div>';
+      }).join('')
+    : '<div class="empty">아직 작성한 질문형 댓글이 없습니다.</div>';
+
+  content.innerHTML =
+    '<div class="field"><div class="field-label">🔗 문제의 인과적 분석 ' + scoreBadge(vs.causalAnalysisScore, 1) + '</div>' +
+    '<div class="field-value">' + escapeHtml_(vs.causalAnalysis) + '</div></div>' +
+
+    '<div class="field"><div class="field-label">🏛️ 나의 관점에서 정책 제안하기 ' + scoreBadge(vs.policyProposalScore, 2) + '</div>' +
+    '<div class="field-value">' + escapeHtml_(vs.policyProposal) + '</div></div>' +
+
+    '<div class="field"><div class="field-label">💬 질문형 댓글 (' + questions.length + '개) ' + scoreBadge(vs.commentScore, 3) + '</div>' +
+    questionsHtml + '</div>';
 }
 
 function renderValueDescBox(valueStr) {
