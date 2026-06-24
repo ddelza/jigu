@@ -602,29 +602,45 @@ function safeParseJson_(str, fallback) {
   }
 }
 
+// 게시ID로 행 번호를 찾을 때 ID열(A열)만 읽음 — 댓글/내용이 쌓여 행이 커져도 조회 속도가 느려지지 않게 함
 function findPadletRow_(sheet, postId) {
-  var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(postId)) return i + 1; // 1-based
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(postId)) return i + 2; // 1-based, 헤더행(1) 보정
   }
   return -1;
 }
 
 var PADLET_TEACHER_ID = '3000'; // 교사용 예시 게시물 학번 (항상 상단 고정 + 핑크색 표시)
+var PADLET_PROFILES_CACHE_KEY = 'padlet_profiles_v1';
+var PADLET_PROFILES_CACHE_TTL = 30; // 학생들의 가치/관점은 수업 중 자주 안 바뀌므로 30초 캐시
+var PADLET_POSTS_CACHE_KEY = 'padlet_posts_v1';
+var PADLET_POSTS_CACHE_TTL = 4; // 폴링 주기(4초)와 맞춰, 같은 순간 여러 학생이 동시에 폴링해도 시트를 한 번만 읽게 함
 
-// "학생별" 탭 T열(선택한 가치)/U열(선택한 관점)을 학번 기준 맵으로 읽어옴
+// "학생별" 탭 T열(선택한 가치)/U열(선택한 관점)을 학번 기준 맵으로 읽어옴 (캐시 적용: 동시 접속자가 많아도 매번 전체 명단을 다시 읽지 않음)
 function getStudentProfiles_() {
-  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
-  if (!sheet) return {};
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 1) return {};
-  var data = sheet.getRange(1, 1, lastRow, 21).getValues(); // A~U열
-  var map = {};
-  for (var i = 0; i < data.length; i++) {
-    var id = String(data[i][0]).trim();
-    if (!id) continue;
-    map[id] = { value: data[i][19] || '', perspective: data[i][20] || '' }; // T열, U열
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(PADLET_PROFILES_CACHE_KEY);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) {}
   }
+
+  var map = {};
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
+  if (sheet) {
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 1) {
+      var data = sheet.getRange(1, 1, lastRow, 21).getValues(); // A~U열
+      for (var i = 0; i < data.length; i++) {
+        var id = String(data[i][0]).trim();
+        if (!id) continue;
+        map[id] = { value: data[i][19] || '', perspective: data[i][20] || '' }; // T열, U열
+      }
+    }
+  }
+  try { cache.put(PADLET_PROFILES_CACHE_KEY, JSON.stringify(map), PADLET_PROFILES_CACHE_TTL); } catch (e) {}
   return map;
 }
 
@@ -637,8 +653,13 @@ function decoratePadletAuthor_(obj, profiles) {
   return obj;
 }
 
-// 클라이언트(padlet.html)에서 호출: 전체 게시물 + (있다면) 내 반응 상태 포함해 반환
-function getPadletPosts(studentId) {
+// 게시물을 새로 쓰거나/반응·댓글이 바뀔 때 호출 — 캐시된 게시물 목록을 무효화해서 다음 조회 때 바로 최신 내용이 보이게 함
+function clearPadletPostsCache_() {
+  try { CacheService.getScriptCache().remove(PADLET_POSTS_CACHE_KEY); } catch (e) {}
+}
+
+// 시트에서 게시물 전체를 읽어 가공 (반응 원본 정보(reactions)는 studentId별 myReaction을 계산하기 위해 잠시 남겨둠)
+function buildPadletPostsRaw_() {
   var sheet = getPadletSheet_();
   var data = sheet.getDataRange().getValues();
   var profiles = getStudentProfiles_();
@@ -646,7 +667,6 @@ function getPadletPosts(studentId) {
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
     if (!row[0]) continue;
-    var reactions = safeParseJson_(row[9], {});
     var comments = safeParseJson_(row[10], []).map(function (c) {
       return decoratePadletAuthor_(c, profiles);
     });
@@ -660,13 +680,42 @@ function getPadletPosts(studentId) {
       policy: row[6],
       likeCount: Number(row[7]) || 0,
       curiousCount: Number(row[8]) || 0,
-      myReaction: (studentId && reactions[studentId]) ? reactions[studentId] : null,
+      reactions: safeParseJson_(row[9], {}),
       comments: comments
     }, profiles));
   }
   posts.sort(function (a, b) {
     if (a.isTeacher !== b.isTeacher) return a.isTeacher ? -1 : 1; // 교사 게시물 상단 고정
     return a.id < b.id ? 1 : -1; // 그 외엔 최신 게시물이 위로
+  });
+  return posts;
+}
+
+// 위 결과를 짧게 캐시 — 같은 4초 폴링 구간에 여러 학생이 동시에 요청해도 시트는 한 번만 읽음
+// (게시물·댓글이 아무리 쌓여도, 동시 접속 인원이 늘어도 매 요청마다 전체를 다시 읽는 비용이 커지지 않도록 하는 핵심 최적화)
+function getPadletPostsRaw_() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(PADLET_POSTS_CACHE_KEY);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) {}
+  }
+  var posts = buildPadletPostsRaw_();
+  try {
+    cache.put(PADLET_POSTS_CACHE_KEY, JSON.stringify(posts), PADLET_POSTS_CACHE_TTL);
+  } catch (e) {
+    // 게시물/댓글이 매우 많아져 캐시 용량(100KB)을 넘으면 캐시 없이 매번 새로 읽음 (정확성에는 영향 없음)
+  }
+  return posts;
+}
+
+// 클라이언트(padlet.html)에서 호출: 전체 게시물 + (있다면) 내 반응 상태 포함해 반환
+function getPadletPosts(studentId) {
+  var raw = getPadletPostsRaw_();
+  var posts = raw.map(function (p) {
+    var copy = {};
+    for (var k in p) { if (k !== 'reactions') copy[k] = p[k]; }
+    copy.myReaction = (studentId && p.reactions && p.reactions[studentId]) ? p.reactions[studentId] : null;
+    return copy;
   });
   return { valid: true, posts: posts };
 }
@@ -693,6 +742,7 @@ function submitPadletPost(payload) {
     payload.perspective, payload.causal.trim(), payload.policy.trim(),
     0, 0, '{}', '[]'
   ]);
+  clearPadletPostsCache_();
   return { success: true, id: id };
 }
 
@@ -709,10 +759,10 @@ function togglePadletReaction(payload) {
   var rowNum = findPadletRow_(sheet, payload.postId);
   if (rowNum === -1) return { success: false, message: '게시물을 찾을 수 없습니다.' };
 
-  var row = sheet.getRange(rowNum, 1, 1, 11).getValues()[0];
-  var likeCount = Number(row[7]) || 0;
-  var curiousCount = Number(row[8]) || 0;
-  var reactions = safeParseJson_(row[9], {});
+  var row = sheet.getRange(rowNum, 8, 1, 3).getValues()[0]; // 좋아요수/궁금해요수/반응기록만 읽음 (댓글·본문 텍스트는 안 읽어서 가벼움)
+  var likeCount = Number(row[0]) || 0;
+  var curiousCount = Number(row[1]) || 0;
+  var reactions = safeParseJson_(row[2], {});
 
   var prev = reactions[payload.studentId];
   if (prev === payload.type) {
@@ -728,6 +778,7 @@ function togglePadletReaction(payload) {
   curiousCount = Math.max(0, curiousCount);
 
   sheet.getRange(rowNum, 8, 1, 3).setValues([[likeCount, curiousCount, JSON.stringify(reactions)]]);
+  clearPadletPostsCache_();
 
   return {
     success: true,
@@ -792,6 +843,7 @@ function addPadletComment(payload) {
   comments.push(comment);
   sheet.getRange(rowNum, 11).setValue(JSON.stringify(comments));
   appendPadletCommentRow_(payload.postId, comment);
+  clearPadletPostsCache_();
 
   return { success: true, comments: comments };
 }
@@ -825,6 +877,7 @@ function deletePadletComment(payload) {
 
   sheet.getRange(rowNum, 11).setValue(JSON.stringify(comments));
   removePadletCommentRows_(removedIds);
+  clearPadletPostsCache_();
 
   return { success: true, comments: comments };
 }
