@@ -104,6 +104,8 @@ function doPost(e) {
     result = saveDraft(body.payload);
   } else if (body.action === 'submitPadletPost') {
     result = submitPadletPost(body.payload);
+  } else if (body.action === 'editPadletPost') {
+    result = editPadletPost(body.payload);
   } else if (body.action === 'togglePadletReaction') {
     result = togglePadletReaction(body.payload);
   } else if (body.action === 'addPadletComment') {
@@ -748,6 +750,32 @@ function submitPadletPost(payload) {
   ]);
   clearPadletPostsCache_();
   return { success: true, id: id };
+}
+
+// 게시물 수정 — 본인이 작성한 게시물만 가능 (관점/열은 그대로 두고 내용만 수정)
+function editPadletPost(payload) {
+  if (!verifyStudent_(payload.studentId, payload.studentName)) {
+    return { success: false, message: '학번 또는 이름이 명단과 일치하지 않습니다.' };
+  }
+  if (!payload.causal || payload.causal.trim().length < 10) {
+    return { success: false, message: '인과관계 설명을 좀 더 구체적으로 작성해주세요. (10자 이상)' };
+  }
+  if (!payload.policy || payload.policy.trim().length < 10) {
+    return { success: false, message: '정책 제안을 좀 더 구체적으로 작성해주세요. (10자 이상)' };
+  }
+
+  var sheet = getPadletSheet_();
+  var rowNum = findPadletRow_(sheet, payload.postId);
+  if (rowNum === -1) return { success: false, message: '게시물을 찾을 수 없습니다.' };
+
+  var ownerId = sheet.getRange(rowNum, 3).getValue();
+  if (String(ownerId) !== String(payload.studentId)) {
+    return { success: false, message: '본인이 작성한 게시물만 수정할 수 있습니다.' };
+  }
+
+  sheet.getRange(rowNum, 6, 1, 2).setValues([[payload.causal.trim(), payload.policy.trim()]]);
+  clearPadletPostsCache_();
+  return { success: true };
 }
 
 // 반응(좋아요/궁금해요) 토글 — 학생 1명당 게시물 1개에 반응 1개만 가능, 같은 반응 다시 누르면 취소
