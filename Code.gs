@@ -86,6 +86,8 @@ function doGet(e) {
     result = getPadletPosts(e.parameter.studentId);
   } else if (action === 'checkReflectionSubmitted') {
     result = checkReflectionSubmitted(e.parameter.studentId, e.parameter.studentName);
+  } else if (action === 'getTeacherRoster') {
+    result = getTeacherRoster(e.parameter.password);
   } else {
     result = { error: 'unknown action' };
   }
@@ -146,6 +148,24 @@ function verifyStudent_(studentId, studentName) {
     }
   }
   return false;
+}
+
+// teacher.html에서 호출: 마스터 비밀번호 확인 후 전체 명단(학번/이름) 반환
+function getTeacherRoster(password) {
+  if (String(password || '').trim() !== MASTER_PASSWORD) {
+    return { valid: false, message: '비밀번호가 일치하지 않습니다.' };
+  }
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
+  if (!sheet) return { valid: false, message: '명단 시트를 찾을 수 없습니다.' };
+
+  var data = sheet.getRange(1, 1, sheet.getLastRow(), 2).getValues(); // A열: 학번, B열: 이름
+  var roster = [];
+  for (var i = 0; i < data.length; i++) {
+    var id = String(data[i][0] || '').trim();
+    var name = String(data[i][1] || '').trim();
+    if (id && name) roster.push({ studentId: id, studentName: name });
+  }
+  return { valid: true, roster: roster };
 }
 
 // 클라이언트에서 호출: 학번/이름이 명단에 있는지 + 이미 제출했는지 확인

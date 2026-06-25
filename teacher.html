@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: 'Noto Sans KR', sans-serif; max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; background: #f6f8fa; color: #222; }
+  h1 { font-size: 20px; text-align: center; }
+  .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  label { display: block; font-weight: bold; margin: 12px 0 6px; }
+  input[type=text], input[type=password] { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; }
+  button { background: #2d6cdf; color: #fff; border: none; padding: 12px 18px; border-radius: 8px; font-size: 15px; cursor: pointer; margin-top: 14px; }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  .hidden { display: none; }
+  .msg { padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 14px; }
+  .msg.error { background: #ffe5e5; color: #b00000; }
+  .msg.success { background: #e3f7e8; color: #1a7a36; }
+  .step-label { font-size: 13px; color: #777; margin-bottom: 6px; }
+
+  /* ===== 명단 검색/목록 ===== */
+  #rosterCard .roster-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  #rosterCard .roster-toolbar input { flex: 1; }
+  #rosterCard .roster-count { font-size: 12.5px; color: #888; margin-bottom: 8px; }
+  .roster-list { max-height: 360px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
+  .roster-row {
+    display: flex; justify-content: space-between; align-items: center; padding: 10px 14px;
+    border-bottom: 1px solid #f0f0f0; cursor: pointer; font-size: 14px;
+  }
+  .roster-row:last-child { border-bottom: none; }
+  .roster-row:hover { background: #f5f8ff; }
+  .roster-row.selected { background: #eaf1ff; }
+  .roster-row .rid { color: #888; font-size: 12.5px; margin-right: 8px; }
+  .roster-empty { padding: 24px; text-align: center; color: #999; font-size: 13.5px; }
+
+  .result-title { font-size: 16px; font-weight: bold; margin-bottom: 8px; }
+  .meta { font-size: 12px; color: #888; margin-bottom: 10px; }
+  .field { margin-bottom: 12px; }
+  .field-label { font-size: 13px; font-weight: bold; color: #555; margin-bottom: 4px; }
+  .field-value { background: #f6f8fa; border-radius: 8px; padding: 10px; font-size: 14px; white-space: pre-wrap; line-height: 1.5; }
+  .empty { color: #999; font-size: 14px; padding: 12px 0; }
+  .learning-item { border-top: 1px solid #eee; padding-top: 12px; margin-top: 12px; }
+  .blank-qa { background: #f6f8fa; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+  .blank-q { font-size: 13px; color: #555; line-height: 1.5; margin-bottom: 4px; }
+  .blank-a { font-size: 14px; font-weight: bold; color: #1a4fbf; }
+  .sub-section-title { font-size: 14px; font-weight: bold; color: #2d6cdf; margin: 18px 0 8px; border-top: 1px dashed #e2e6f0; padding-top: 14px; }
+  .sub-section-title:first-of-type { margin-top: 4px; border-top: none; padding-top: 0; }
+  .score-total-row { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+  .score-total { font-size: 28px; font-weight: bold; color: #2d6cdf; margin-bottom: 4px; }
+  .score-total span { font-size: 16px; color: #888; font-weight: normal; }
+  .score-list { margin-top: 14px; }
+  .score-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  .score-row:last-child { border-bottom: none; }
+  .score-badge { font-weight: bold; padding: 3px 10px; border-radius: 999px; font-size: 13px; white-space: nowrap; margin-left: 10px; }
+  .score-badge.got { background: #e3f7e8; color: #1a7a36; }
+  .score-badge.missed { background: #f0f0f0; color: #999; }
+  .point-badge { font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+  .point-badge.got { background: #e3f7e8; color: #1a7a36; }
+  .point-badge.missed { background: #f0f0f0; color: #999; }
+  .pending { background: #fff7e0; color: #9a7600; }
+  .explain-box { background: #f5f8ff; border: 1px solid #dbe6ff; border-radius: 8px; padding: 10px 12px; font-size: 12.5px; color: #555; line-height: 1.6; margin-bottom: 10px; }
+  .value-desc-box, .perspective-desc-box {
+    background: #f5f8ff; border: 1px solid #dbe6ff; border-radius: 8px; padding: 10px 12px;
+    font-size: 13px; color: #444; line-height: 1.6; margin-top: 6px;
+  }
+  .value-desc-box .vd-title, .perspective-desc-box .pd-title { font-weight: bold; color: #2d6cdf; margin-bottom: 4px; }
+  .perspective-desc-box .pd-solutions { margin-top: 6px; font-size: 12.5px; color: #555; }
+  .perspective-desc-box .pd-solutions b { color: #b8860b; }
+  .detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .detail-header .back-btn { background: #eee; color: #555; padding: 6px 12px; font-size: 13px; margin-top: 0; }
+</style>
+</head>
+<body>
+  <h1>🧑‍🏫 교사용 학생 데이터 조회</h1>
+
+  <!-- STEP 0: 마스터 비밀번호 -->
+  <div id="step0" class="card">
+    <div class="step-label">교사 마스터 비밀번호를 입력하면 전체 학생 명단과 제출 내용을 조회할 수 있습니다.</div>
+    <label>비밀번호</label>
+    <input type="password" id="masterPassword" placeholder="마스터 비밀번호 입력">
+    <div id="step0-msg"></div>
+    <button onclick="loadRoster()" id="loadBtn">확인하기</button>
+  </div>
+
+  <!-- STEP 1: 명단 검색 + 목록 -->
+  <div id="rosterCard" class="card hidden">
+    <div class="result-title">👥 전체 학생 명단</div>
+    <div class="roster-toolbar">
+      <input type="text" id="rosterSearch" placeholder="학번 또는 이름으로 검색 (예: 3101, 김병선)" oninput="renderRoster()">
+    </div>
+    <div class="roster-count" id="rosterCount"></div>
+    <div class="roster-list" id="rosterList"></div>
+  </div>
+
+  <!-- STEP 2: 선택한 학생 상세 -->
+  <div id="detailCard" class="card hidden">
+    <div class="detail-header">
+      <div class="result-title" id="detailTitle"></div>
+      <button class="back-btn" onclick="closeDetail()">← 명단으로</button>
+    </div>
+    <div id="detailBody"></div>
+  </div>
+
+<script>
+var APP_URL = 'https://script.google.com/macros/s/AKfycbwWjFVmcxHzg0GUIbySHl2orXll2siH1I5oAeZNP8VWmYSaVbQ5YOlYEe1o7X7-KcHQ/exec';
+var MASTER_PW = '';
+var ROSTER = [];
+
+var SECTION_TITLES = {
+  '1': '🌍 복사 평형 분과',
+  '2': '🌧️ 수증기·강수 분과',
+  '3': '🌬️ 기압·바람 분과',
+  '4': '☁️ 기단·전선 분과'
+};
+var BLANK_PROMPTS = {
+  '1': [
+    '지구는 태양으로부터 엄청난 양의 ( ① )를 흡수하고, 동시에 우주로 에너지를 방출하여 온도가 일정하게 유지되는 ( ② ) 상태를 이룹니다. ①에 들어갈 말은?',
+    '* 위 문장과 이어집니다. ②에 들어갈 말은? (온도가 일정하게 유지되는 상태의 이름)',
+    '지표에서 우주로 방출되는 에너지 중 일부를 대기가 흡수했다가 다시 지표로 방출하여 지구를 따뜻하게 유지하는 현상을 무엇이라 하나요?',
+    '이러한 효과를 일으키는 주요 기체인 수증기, ( ), 메테인 등이 있습니다. 빈칸에 들어갈 기체는?',
+    '* 위 문장과 이어집니다. 수증기, 이산화탄소, 메테인 등을 묶어서 부르는 이름은?',
+    '그러나 인간의 산업 활동(화석 연료 사용 등)으로 인해 대기 중의 ( ) 농도가 급격히 증가했습니다. 빈칸에 들어갈 말은?',
+    '그 결과 대기의 보온 효과가 비정상적으로 강화되어 지구의 평균 기온이 점점 빠르게 상승하는 현상을 무엇이라 하나요?'
+  ],
+  '2': [
+    '일정한 온도에서 공기가 최대로 포함할 수 있는 수증기의 양을 무엇이라 하나요?',
+    '공기가 위로 상승하면 주변 압력이 낮아져 부피가 커지고 온도는 낮아지는 현상을 무엇이라 하나요?',
+    '온도가 이 지점까지 낮아지면 수증기가 응결되기 시작합니다. 이 온도를 무엇이라 하나요?',
+    '수증기가 응결되어 만들어지는 것은 무엇인가요?',
+    '대기가 머금는 수증기량이 급증하면 한 번에 엄청난 비가 쏟아지는 극단적인 현상이 발생합니다. 이를 무엇이라 하나요?',
+    '반대로 비가 오지 않는 지역이 겪게 되는 극심한 현상은 무엇인가요?'
+  ],
+  '3': [
+    '기체가 충돌하면서 단위 면적에 작용하는 힘을 무엇이라 하나요?',
+    '지표면이 가열되어 공기가 팽창, 상승하면 무엇이 형성되나요?',
+    '지표면이 냉각되어 공기가 수축, 하강하면 무엇이 형성되나요?',
+    '기압이 높은 곳에서 낮은 곳으로 이동하는 공기의 수평 이동을 무엇이라 하나요?',
+    '온난화로 북극 기온이 크게 상승하면 중위도 지방과의 무엇의 차이가 줄어드나요?',
+    '대기 순환의 균형이 깨지면서 한겨울에 발생하는 이상 현상은 무엇인가요?'
+  ],
+  '4': [
+    '공기 덩어리가 한 장소에 오래 머물러 지표면의 기온/습도 속성을 띠게 된 것을 무엇이라 하나요?',
+    '성질이 다른 두 기단이 만나는 경계면을 무엇이라 하나요?',
+    '세력이 비슷한 두 기단이 오랫동안 머물 때 형성되는 전선은 무엇인가요? (장마전선이 대표적)',
+    '우리나라 한여름에 영향을 주는 고온다습한 기단의 이름은?',
+    '온난화로 기단의 경계가 무너지면서 무엇의 경계가 모호해지나요? (봄,여름,가을,겨울)',
+    '전선이 이동하지 못하고 한곳에 머무는 현상을 무엇이라 하나요?'
+  ]
+};
+
+var VALUES = [
+  { emoji: '🛡️', name: '안전', eng: 'Safety', desc: '어떠한 거대한 재난 앞에서도 사람들의 생명과 건강이 다치지 않게 최우선으로 보호받아야 한다고 생각합니다.' },
+  { emoji: '🍃', name: '쾌적', eng: 'Comfort', desc: '위기를 해결한다는 이유로 우리가 누려온 삶의 질을 떨어뜨리거나, 일상의 안락함을 포기해서는 안 된다고 생각합니다.' },
+  { emoji: '💰', name: '절약', eng: 'Savings', desc: '한정된 국가의 자원과 예산이 불필요한 곳에 허투루 낭비되는 것을 막고, 철저하게 아껴 써야 한다고 생각합니다.' },
+  { emoji: '📱', name: '편의', eng: 'Convenience', desc: '사람들에게 도덕적인 희생이나 불편함을 억지로 강요하기보다, 알아서 문제를 해결해 주는 편리한 시스템이 필요하다고 생각합니다.' },
+  { emoji: '⚖️', name: '공정', eng: 'Fairness', desc: '문제를 일으킨 사람과 그로 인해 고통받는 사람이 달라서 생기는 \'억울한 상황\'을 막고, 모두가 평등해야 한다고 생각합니다.' },
+  { emoji: '📈', name: '효율', eng: 'Efficiency', desc: '한정된 예산과 시간 속에서, 최소한의 비용과 노력으로 가장 빠르고 확실한 결과를 얻어내야 한다고 생각합니다.' },
+  { emoji: '🤝', name: '공존', eng: 'Coexistence', desc: '나 혼자만 잘 사는 것이 아니라, 이웃과 다른 나라 사람들, 그리고 동식물 생태계가 다 함께 어우러져 살아야 한다고 생각합니다.' },
+  { emoji: '🛑', name: '책임', eng: 'Responsibility', desc: '위기를 만든 원인 제공자라면, 자신이 저지른 잘못된 행동에 대해 피하지 않고 마땅한 대가를 치러야 한다고 생각합니다.' },
+  { emoji: '🚀', name: '혁신', eng: 'Innovation', desc: '과거의 낡은 방식이나 느린 제도에 얽매이지 않고, 한계를 뛰어넘는 과감하고 새로운 돌파구를 만들어야 한다고 생각합니다.' }
+];
+
+var PERSPECTIVE_DATA = {
+  '경제적 관점': {
+    emoji: '💰',
+    desc: '세상을 움직이는 건 돈과 시장이다. 시장의 흐름을 바꿔 탄소 배출을 손해로, 친환경을 이익으로 만들어야 한다.',
+    solutions: '탄소세 도입, 탄소 배출권 거래제, 재생 에너지 막대한 보조금 지급, 농업 피해 보상 예산 투입.'
+  },
+  '기술적 관점': {
+    emoji: '🔬',
+    desc: '인간의 한계는 과학으로 돌파한다. 이미 배출된 탄소와 올라간 온도를 물리적이고 즉각적인 기술로 제어해야 한다.',
+    solutions: '초대형 대기 탄소 포집기(CCUS) 설치, 지구 공학(우주 반사경, 성층권 에어로졸), AI 스마트 기상 방어망, 인공태양(핵융합).'
+  },
+  '윤리적 관점': {
+    emoji: '🤝',
+    desc: '기후위기는 불평등과 인권의 문제다. 돈과 기술을 기다릴 시간이 없으며, 당장 죽어가는 취약계층의 생존부터 법으로 지켜야 한다.',
+    solutions: '야외 노동자 기후 휴업 수당 지급, 기후 난민 구호 기금, 대중교통 전면 무료화, 육류 소비 및 일회용품 강력 규제.'
+  }
+};
+
+function findValueDesc(valueStr) {
+  if (!valueStr) return null;
+  return VALUES.find(function (v) {
+    return valueStr.indexOf(v.name) !== -1;
+  }) || null;
+}
+
+function getSectionIdByTitle(title) {
+  for (var id in SECTION_TITLES) {
+    if (SECTION_TITLES[id] === title) return id;
+  }
+  return null;
+}
+
+function renderBlanksWithPrompts(sectionTitle, blanksStr) {
+  var sectionId = getSectionIdByTitle(sectionTitle);
+  var answers = (blanksStr || '').split(' / ');
+  var prompts = sectionId ? BLANK_PROMPTS[sectionId] : null;
+
+  if (!prompts) {
+    return '<div class="field-value">' + escapeHtml_(blanksStr) + '</div>';
+  }
+
+  return prompts.map(function (q, i) {
+    return '<div class="blank-qa">' +
+      '<div class="blank-q">' + (i + 1) + '. ' + escapeHtml_(q) + '</div>' +
+      '<div class="blank-a">✏️ ' + escapeHtml_(answers[i] || '') + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function apiGet(params) {
+  var qs = Object.keys(params).map(function (k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+  return fetch(APP_URL + '?' + qs).then(function (r) { return r.json(); });
+}
+
+function loadRoster() {
+  var pw = document.getElementById('masterPassword').value.trim();
+  var msg = document.getElementById('step0-msg');
+  var btn = document.getElementById('loadBtn');
+  msg.innerHTML = '';
+
+  if (!pw) {
+    msg.innerHTML = '<div class="msg error">비밀번호를 입력해주세요.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  msg.innerHTML = '<div class="msg success">확인 중...</div>';
+
+  apiGet({ action: 'getTeacherRoster', password: pw }).then(function (res) {
+    btn.disabled = false;
+    if (!res.valid) {
+      msg.innerHTML = '<div class="msg error">' + res.message + '</div>';
+      return;
+    }
+    MASTER_PW = pw;
+    ROSTER = res.roster || [];
+    msg.innerHTML = '';
+    document.getElementById('step0').classList.add('hidden');
+    document.getElementById('rosterCard').classList.remove('hidden');
+    renderRoster();
+  }).catch(function (err) {
+    btn.disabled = false;
+    msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+  });
+}
+
+function renderRoster() {
+  var q = document.getElementById('rosterSearch').value.trim().toLowerCase();
+  var list = document.getElementById('rosterList');
+  var countEl = document.getElementById('rosterCount');
+
+  var filtered = ROSTER.filter(function (s) {
+    if (!q) return true;
+    return s.studentId.toLowerCase().indexOf(q) !== -1 || s.studentName.toLowerCase().indexOf(q) !== -1;
+  });
+
+  countEl.textContent = '전체 ' + ROSTER.length + '명 중 ' + filtered.length + '명 표시';
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="roster-empty">검색 결과가 없습니다.</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(function (s) {
+    return '<div class="roster-row" onclick="openDetail(\'' + s.studentId + '\', \'' + s.studentName.replace(/'/g, "\\'") + '\')">' +
+      '<span><span class="rid">' + s.studentId + '</span>' + escapeHtml_(s.studentName) + '</span>' +
+      '<span>›</span>' +
+      '</div>';
+  }).join('');
+}
+
+function closeDetail() {
+  document.getElementById('detailCard').classList.add('hidden');
+  document.getElementById('rosterCard').classList.remove('hidden');
+}
+
+function openDetail(id, name) {
+  document.getElementById('rosterCard').classList.add('hidden');
+  var card = document.getElementById('detailCard');
+  card.classList.remove('hidden');
+  document.getElementById('detailTitle').textContent = '📋 ' + id + ' ' + name;
+  document.getElementById('detailBody').innerHTML = '<div class="empty">불러오는 중...</div>';
+
+  apiGet({ action: 'getMySubmissions', studentId: id, studentName: name, password: MASTER_PW }).then(function (res) {
+    if (!res.valid) {
+      document.getElementById('detailBody').innerHTML = '<div class="msg error">' + res.message + '</div>';
+      return;
+    }
+    renderDetail(res.own, res.learning, res.valueScore);
+  }).catch(function (err) {
+    document.getElementById('detailBody').innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
+  });
+}
+
+function isGradedNumber(v) {
+  return v !== null && v !== undefined && v !== '' && !isNaN(Number(v));
+}
+
+function cleanCellText(s) {
+  s = String(s || '').trim();
+  return (s === '' || s.toUpperCase() === '#N/A') ? '' : s;
+}
+
+function scoreBadgeHtml(score, max) {
+  if (isGradedNumber(score)) return '<span class="point-badge got">✅ ' + Number(score) + '점 / ' + max + '점</span>';
+  return '<span class="point-badge pending">채점 대기중 (' + max + '점)</span>';
+}
+
+function renderDetail(own, learning, vs) {
+  var html = '';
+
+  // ---- 점수 요약 ----
+  var hasOwnQuiz = !!own;
+  var hasAiCheck = !!(own && own.aiCheck && own.aiCheck.trim().length > 0);
+  var hasLifeAnswer = !!(own && own.lifeAnswer && own.lifeAnswer.trim().length > 0);
+  var learningCount = (learning || []).length;
+
+  var items = [
+    { label: '자신의 분과 퀴즈 풀기', got: hasOwnQuiz, point: 1 },
+    { label: 'AI 검증하기', got: hasAiCheck, point: 1 },
+    { label: '지구온난화가 삶에 미치는 영향 인과단계', got: hasLifeAnswer, point: 2 },
+    { label: '다른 분과 퀴즈 풀기 1', got: learningCount >= 1, point: 1 },
+    { label: '다른 분과 퀴즈 풀기 2', got: learningCount >= 2, point: 1 },
+    { label: '다른 분과 퀴즈 풀기 3', got: learningCount >= 3, point: 1 }
+  ];
+
+  var total = items.reduce(function (sum, it) { return sum + (it.got ? it.point : 0); }, 0);
+  var max = items.reduce(function (sum, it) { return sum + it.point; }, 0);
+
+  var gradedItems = [
+    { label: '기후위기 인과 찾기', score: vs && vs.scoreCausal, max: 2 },
+    { label: '나의 가치가 중요한 이유 서술', score: vs && vs.scoreReasonImportance, max: 2 },
+    { label: '나의 가치와 기후위기 해결 관점 연결', score: vs && vs.scoreReasonConnection, max: 2 },
+    { label: '문제의 인과적 분석 (3차시)', score: vs && vs.causalAnalysisScore, max: 1 },
+    { label: '나의 관점에서 정책 제안하기 (3차시)', score: vs && vs.policyProposalScore, max: 2 },
+    { label: '질문형 댓글 (3차시)', score: vs && vs.commentScore, max: 3 },
+    { label: '알게 된 것 (마지막 차시)', score: vs && vs.reflectionKnowledgeScore, max: 2 },
+    { label: '관점의 변화 (마지막 차시)', score: vs && vs.reflectionPerspectiveChangeScore, max: 2 },
+    { label: '실천 다짐 (마지막 차시)', score: vs && vs.reflectionCommitmentScore, max: 2 }
+  ];
+  gradedItems.forEach(function (it) {
+    max += it.max;
+    if (isGradedNumber(it.score)) total += Number(it.score);
+  });
+
+  html += '<div class="result-title">🏆 총점</div>' +
+    '<div class="score-total-row"><div class="score-total">' + total + '<span> / ' + max + '점</span></div></div>' +
+    '<div class="score-list">' +
+    items.map(function (it) {
+      return '<div class="score-row">' +
+        '<span>' + it.label + '</span>' +
+        '<span class="score-badge ' + (it.got ? 'got' : 'missed') + '">' + (it.got ? '✅ ' + it.point + '점' : '미완료 0점') + '</span>' +
+        '</div>';
+    }).join('') +
+    gradedItems.map(function (it) {
+      var badgeClass = isGradedNumber(it.score) ? 'got' : 'pending';
+      var badgeText = isGradedNumber(it.score) ? ('✅ ' + Number(it.score) + '점') : '채점 대기중';
+      return '<div class="score-row">' +
+        '<span>' + it.label + ' (' + it.max + '점)</span>' +
+        '<span class="score-badge ' + badgeClass + '">' + badgeText + '</span>' +
+        '</div>';
+    }).join('') +
+    '</div>';
+
+  // ---- 1차시: 핵심 개념일지 (본인 분과 + 다른 분과) ----
+  html += '<div class="sub-section-title" style="margin-top:24px;">📝 1차시-핵심 개념일지 (본인 분과)</div>';
+  if (!own) {
+    html += '<div class="empty">아직 제출한 기록이 없습니다.</div>';
+  } else {
+    html += '<div class="meta">제출 시각: ' + own.timestamp + ' / 분과: ' + own.section + '</div>' +
+      '<div class="field"><div class="field-label">빈칸 채우기 <span class="point-badge got">✅ 1점</span></div>' + renderBlanksWithPrompts(own.section, own.blanks) + '</div>' +
+      '<div class="field"><div class="field-label">💡 AI 교차 검증 기록 <span class="point-badge ' + (hasAiCheck ? 'got">✅ 1점' : 'missed">미완료 0점') + '</span></div><div class="field-value">' + escapeHtml_(own.aiCheck) + '</div></div>' +
+      '<div class="field"><div class="field-label">➡️ 인과 단계 서술 <span class="point-badge ' + (hasLifeAnswer ? 'got">✅ 2점' : 'missed">미완료 0점') + '</span></div><div class="field-value">' + escapeHtml_(own.lifeAnswer) + '</div></div>';
+  }
+
+  html += '<div class="sub-section-title">👂 1차시-핵심 개념일지 (다른 분과)</div>';
+  if (!learning || learning.length === 0) {
+    html += '<div class="empty">아직 제출한 기록이 없습니다.</div>';
+  } else {
+    html += learning.map(function (item, idx) {
+      return '<div class="learning-item' + (idx === 0 ? ' first' : '') + '">' +
+        '<div class="meta">제출 시각: ' + item.timestamp + ' / 분과: ' + item.section +
+        ' <span class="point-badge got">다른 분과 퀴즈 풀기 ' + (idx + 1) + ' · ✅ 1점</span></div>' +
+        renderBlanksWithPrompts(item.section, item.blanks) +
+        '</div>';
+    }).join('');
+  }
+
+  // ---- 2차시: 인과 사슬 & 가치 관점 ----
+  html += '<div class="sub-section-title">🔺 2차시-인과 사슬 작성 & 가치 관점 선택</div>';
+  if (!vs || (!vs.causalChain && !vs.reason)) {
+    html += '<div class="empty">아직 제출한 기록이 없습니다.</div>';
+  } else {
+    html += '<div class="field"><div class="field-label">🔗 기후위기 인과 찾기 ' + scoreBadgeHtml(vs.scoreCausal, 2) + '</div>' +
+      '<div class="field-value">' + escapeHtml_(vs.causalChain) + '</div></div>' +
+
+      '<div class="field"><div class="field-label">💭 평소 중요하게 생각하는 가치 / 선택한 관점</div>' +
+      '<div class="field-value">가치: ' + escapeHtml_(vs.value) + '<br>관점: ' + escapeHtml_(vs.perspective) + '</div>' +
+      renderValueDescBox(vs.value) +
+      renderPerspectiveDescBox(vs.perspective) +
+      '</div>' +
+
+      '<div class="field"><div class="field-label">📝 가치와 관점을 연결한 서술</div>' +
+      '<div class="field-value">' + escapeHtml_(vs.reason) + '</div>' +
+      '<div style="margin-top:8px;">' +
+        '가치가 중요한 이유 ' + scoreBadgeHtml(vs.scoreReasonImportance, 2) + '&nbsp;&nbsp;' +
+        '가치-관점 연결 ' + scoreBadgeHtml(vs.scoreReasonConnection, 2) +
+      '</div></div>';
+  }
+
+  // ---- 3차시: 지구온난화 긴급회의 ----
+  html += '<div class="sub-section-title">🗂️ 3차시 - 지구온난화 긴급회의</div>';
+  var causalAnalysis = vs ? cleanCellText(vs.causalAnalysis) : '';
+  var policyProposal = vs ? cleanCellText(vs.policyProposal) : '';
+  var questionComments = vs ? cleanCellText(vs.questionComments) : '';
+  if (!causalAnalysis && !policyProposal && !questionComments) {
+    html += '<div class="empty">아직 제출한 기록이 없습니다.</div>';
+  } else {
+    var questions = questionComments.split(' | ').map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0 && s.toUpperCase() !== '#N/A'; });
+    var questionsHtml = questions.length
+      ? questions.map(function (q, i) {
+          return '<div class="blank-qa"><div class="blank-a">' + (i + 1) + '. ' + escapeHtml_(q) + '</div></div>';
+        }).join('')
+      : '<div class="empty">아직 작성한 질문형 댓글이 없습니다.</div>';
+
+    html += '<div class="field"><div class="field-label">🔗 문제의 인과적 분석 ' + scoreBadgeHtml(vs.causalAnalysisScore, 1) + '</div>' +
+      '<div class="field-value">' + (causalAnalysis ? escapeHtml_(causalAnalysis) : '<span class="empty">아직 작성하지 않았습니다.</span>') + '</div></div>' +
+
+      '<div class="field"><div class="field-label">🏛️ 나의 관점에서 정책 제안하기 ' + scoreBadgeHtml(vs.policyProposalScore, 2) + '</div>' +
+      '<div class="field-value">' + (policyProposal ? escapeHtml_(policyProposal) : '<span class="empty">아직 작성하지 않았습니다.</span>') + '</div></div>' +
+
+      '<div class="field"><div class="field-label">💬 질문형 댓글 (' + questions.length + '개) ' + scoreBadgeHtml(vs.commentScore, 3) + '</div>' +
+      questionsHtml + '</div>';
+  }
+
+  // ---- 마지막 차시: 성찰일지 ----
+  html += '<div class="sub-section-title">🌍 마지막 차시 - 성찰일지</div>';
+  var knowledge = vs ? cleanCellText(vs.reflectionKnowledge) : '';
+  var perspectiveChange = vs ? cleanCellText(vs.reflectionPerspectiveChange) : '';
+  var commitment = vs ? cleanCellText(vs.reflectionCommitment) : '';
+  if (!knowledge && !perspectiveChange && !commitment) {
+    html += '<div class="empty">아직 제출한 기록이 없습니다.</div>';
+  } else {
+    function fieldOrEmpty(text) {
+      return text ? escapeHtml_(text) : '<span class="empty">아직 작성하지 않았습니다.</span>';
+    }
+    html += '<div class="field"><div class="field-label">📖 [지식] 프로젝트를 통해 알게 된 것 ' + scoreBadgeHtml(vs.reflectionKnowledgeScore, 2) + '</div>' +
+      '<div class="field-value">' + fieldOrEmpty(knowledge) + '</div></div>' +
+
+      '<div class="field"><div class="field-label">🔄 [관점의 변화] 생각의 확장 성찰 ' + scoreBadgeHtml(vs.reflectionPerspectiveChangeScore, 2) + '</div>' +
+      '<div class="field-value">' + fieldOrEmpty(perspectiveChange) + '</div></div>' +
+
+      '<div class="field"><div class="field-label">🌱 [실천] 기후 시민으로서의 포부 ' + scoreBadgeHtml(vs.reflectionCommitmentScore, 2) + '</div>' +
+      '<div class="field-value">' + fieldOrEmpty(commitment) + '</div></div>';
+  }
+
+  document.getElementById('detailBody').innerHTML = html;
+}
+
+function renderValueDescBox(valueStr) {
+  var v = findValueDesc(valueStr);
+  if (!v) return '';
+  return '<div class="value-desc-box"><div class="vd-title">' + v.emoji + ' ' + v.name + ' (' + v.eng + ')</div>💡 의미: ' + v.desc + '</div>';
+}
+
+function renderPerspectiveDescBox(perspectiveStr) {
+  var p = PERSPECTIVE_DATA[perspectiveStr];
+  if (!p) return '';
+  return '<div class="perspective-desc-box">' +
+    '<div class="pd-title">' + p.emoji + ' ' + escapeHtml_(perspectiveStr) + '</div>' +
+    p.desc +
+    '<div class="pd-solutions"><b>해결책 예시</b>: ' + p.solutions + '</div>' +
+    '</div>';
+}
+
+function escapeHtml_(s) {
+  var div = document.createElement('div');
+  div.innerText = s || '';
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
