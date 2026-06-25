@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  body { font-family: 'Noto Sans KR', sans-serif; max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; background: #f6f8fa; color: #222; }
+  body { font-family: 'Noto Sans KR', sans-serif; max-width: 1180px; margin: 0 auto; padding: 24px 16px 60px; background: #f6f8fa; color: #222; }
   h1 { font-size: 20px; text-align: center; }
   .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
   label { display: block; font-weight: bold; margin: 12px 0 6px; }
@@ -18,20 +18,31 @@
   .msg.success { background: #e3f7e8; color: #1a7a36; }
   .step-label { font-size: 13px; color: #777; margin-bottom: 6px; }
 
-  /* ===== 명단 검색/목록 ===== */
-  #rosterCard .roster-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
-  #rosterCard .roster-toolbar input { flex: 1; }
-  #rosterCard .roster-count { font-size: 12.5px; color: #888; margin-bottom: 8px; }
-  .roster-list { max-height: 360px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
-  .roster-row {
-    display: flex; justify-content: space-between; align-items: center; padding: 10px 14px;
-    border-bottom: 1px solid #f0f0f0; cursor: pointer; font-size: 14px;
+  /* ===== 명단 검색/필터/제출현황 표 ===== */
+  #rosterCard .roster-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  #rosterCard .roster-toolbar input { flex: 1; min-width: 160px; }
+  #rosterCard .roster-toolbar select {
+    padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; background: #fff;
   }
-  .roster-row:last-child { border-bottom: none; }
-  .roster-row:hover { background: #f5f8ff; }
-  .roster-row.selected { background: #eaf1ff; }
-  .roster-row .rid { color: #888; font-size: 12.5px; margin-right: 8px; }
+  #rosterCard .roster-count { font-size: 12.5px; color: #888; margin-bottom: 8px; }
   .roster-empty { padding: 24px; text-align: center; color: #999; font-size: 13.5px; }
+
+  .status-table-wrap { overflow-x: auto; border: 1px solid #eee; border-radius: 8px; }
+  table.status-table { border-collapse: collapse; width: 100%; font-size: 12.5px; white-space: nowrap; }
+  table.status-table th, table.status-table td { padding: 6px 7px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+  table.status-table thead tr.group-row th { background: #eef3fc; color: #2d6cdf; font-size: 12px; border-bottom: 1px solid #dbe6ff; }
+  table.status-table thead tr.label-row th { background: #f8f9fb; color: #666; font-weight: normal; font-size: 11.5px; }
+  table.status-table td.student-cell, table.status-table th.student-col {
+    position: sticky; left: 0; background: #fff; text-align: left; z-index: 1; min-width: 130px;
+  }
+  table.status-table thead th.student-col { background: #f8f9fb; z-index: 2; }
+  table.status-table tbody tr:hover td { background: #f5f8ff; }
+  table.status-table tbody tr:hover td.student-cell { background: #f5f8ff; }
+  table.status-table .student-cell { cursor: pointer; }
+  table.status-table .rid { color: #888; font-size: 11px; margin-right: 5px; }
+  .status-sq { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
+  .status-sq.on { background: #4caf78; }
+  .status-sq.off { background: #e57373; }
 
   .result-title { font-size: 16px; font-weight: bold; margin-bottom: 8px; }
   .meta { font-size: 12px; color: #888; margin-bottom: 10px; }
@@ -82,14 +93,36 @@
     <button onclick="loadRoster()" id="loadBtn">확인하기</button>
   </div>
 
-  <!-- STEP 1: 명단 검색 + 목록 -->
+  <!-- STEP 1: 명단 검색/필터 + 제출현황 표 -->
   <div id="rosterCard" class="card hidden">
-    <div class="result-title">👥 전체 학생 명단</div>
+    <div class="result-title">👥 전체 학생 명단 / 제출 현황</div>
     <div class="roster-toolbar">
-      <input type="text" id="rosterSearch" placeholder="학번 또는 이름으로 검색 (예: 3101, 김병선)" oninput="renderRoster()">
+      <select id="classFilter" onchange="renderRoster()">
+        <option value="">전체 반</option>
+      </select>
+      <input type="text" id="rosterSearch" placeholder="이름으로 검색 (예: 김병선)" oninput="renderRoster()">
     </div>
     <div class="roster-count" id="rosterCount"></div>
-    <div class="roster-list" id="rosterList"></div>
+    <div class="status-table-wrap">
+      <table class="status-table">
+        <thead>
+          <tr class="group-row">
+            <th class="student-col" rowspan="2">학생</th>
+            <th colspan="4">1차시</th>
+            <th colspan="4">2차시</th>
+            <th colspan="5">3차시</th>
+            <th colspan="3">4차시</th>
+          </tr>
+          <tr class="label-row">
+            <th>자기분과</th><th>다른분과1</th><th>다른분과2</th><th>다른분과3</th>
+            <th>인과</th><th>가치</th><th>관점</th><th>관점-가치연결</th>
+            <th>문제인과분석</th><th>관점정책제안</th><th>질문형댓글1</th><th>질문형댓글2</th><th>질문형댓글3</th>
+            <th>알게된것</th><th>관점의변화</th><th>실천다짐</th>
+          </tr>
+        </thead>
+        <tbody id="rosterTableBody"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- STEP 2: 선택한 학생 상세 -->
@@ -241,6 +274,7 @@ function loadRoster() {
     msg.innerHTML = '';
     document.getElementById('step0').classList.add('hidden');
     document.getElementById('rosterCard').classList.remove('hidden');
+    populateClassFilter();
     renderRoster();
   }).catch(function (err) {
     btn.disabled = false;
@@ -248,28 +282,72 @@ function loadRoster() {
   });
 }
 
+// 운영자(교사) 계정(반 숫자 '0')은 반 필터 목록/표에서 제외
+function isOperator(s) {
+  return s.classDigit === '0';
+}
+
+function populateClassFilter() {
+  var classes = [];
+  ROSTER.forEach(function (s) {
+    if (isOperator(s)) return;
+    if (s.classDigit && classes.indexOf(s.classDigit) === -1) classes.push(s.classDigit);
+  });
+  classes.sort();
+
+  var sel = document.getElementById('classFilter');
+  sel.innerHTML = '<option value="">전체 반</option>' +
+    classes.map(function (c) { return '<option value="' + c + '">' + c + '반</option>'; }).join('');
+}
+
+function statusSquare(on) {
+  return '<span class="status-sq ' + (on ? 'on' : 'off') + '" title="' + (on ? '제출' : '미제출') + '"></span>';
+}
+
 function renderRoster() {
   var q = document.getElementById('rosterSearch').value.trim().toLowerCase();
-  var list = document.getElementById('rosterList');
+  var classFilter = document.getElementById('classFilter').value;
+  var tbody = document.getElementById('rosterTableBody');
   var countEl = document.getElementById('rosterCount');
 
   var filtered = ROSTER.filter(function (s) {
-    if (!q) return true;
-    return s.studentId.toLowerCase().indexOf(q) !== -1 || s.studentName.toLowerCase().indexOf(q) !== -1;
+    if (isOperator(s)) return false;
+    if (classFilter && s.classDigit !== classFilter) return false;
+    if (q && s.studentName.toLowerCase().indexOf(q) === -1) return false;
+    return true;
   });
 
-  countEl.textContent = '전체 ' + ROSTER.length + '명 중 ' + filtered.length + '명 표시';
+  var totalCount = ROSTER.filter(function (s) { return !isOperator(s); }).length;
+  countEl.textContent = '전체 ' + totalCount + '명 중 ' + filtered.length + '명 표시';
 
   if (filtered.length === 0) {
-    list.innerHTML = '<div class="roster-empty">검색 결과가 없습니다.</div>';
+    tbody.innerHTML = '<tr><td colspan="17" class="roster-empty">검색 결과가 없습니다.</td></tr>';
     return;
   }
 
-  list.innerHTML = filtered.map(function (s) {
-    return '<div class="roster-row" onclick="openDetail(\'' + s.studentId + '\', \'' + s.studentName.replace(/'/g, "\\'") + '\')">' +
-      '<span><span class="rid">' + s.studentId + '</span>' + escapeHtml_(s.studentName) + '</span>' +
-      '<span>›</span>' +
-      '</div>';
+  tbody.innerHTML = filtered.map(function (s) {
+    var st = s.status || {};
+    return '<tr>' +
+      '<td class="student-cell" onclick="openDetail(\'' + s.studentId + '\', \'' + s.studentName.replace(/'/g, "\\'") + '\')">' +
+        '<span class="rid">' + s.studentId + '</span>' + escapeHtml_(s.studentName) +
+      '</td>' +
+      '<td>' + statusSquare(st.ownSection) + '</td>' +
+      '<td>' + statusSquare(st.otherSection1) + '</td>' +
+      '<td>' + statusSquare(st.otherSection2) + '</td>' +
+      '<td>' + statusSquare(st.otherSection3) + '</td>' +
+      '<td>' + statusSquare(st.causalChain) + '</td>' +
+      '<td>' + statusSquare(st.value) + '</td>' +
+      '<td>' + statusSquare(st.perspective) + '</td>' +
+      '<td>' + statusSquare(st.reasonConnection) + '</td>' +
+      '<td>' + statusSquare(st.causalAnalysis) + '</td>' +
+      '<td>' + statusSquare(st.policyProposal) + '</td>' +
+      '<td>' + statusSquare(st.comment1) + '</td>' +
+      '<td>' + statusSquare(st.comment2) + '</td>' +
+      '<td>' + statusSquare(st.comment3) + '</td>' +
+      '<td>' + statusSquare(st.knowledge) + '</td>' +
+      '<td>' + statusSquare(st.perspectiveChange) + '</td>' +
+      '<td>' + statusSquare(st.commitment) + '</td>' +
+      '</tr>';
   }).join('');
 }
 

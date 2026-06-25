@@ -150,7 +150,17 @@ function verifyStudent_(studentId, studentName) {
   return false;
 }
 
-// teacher.html에서 호출: 마스터 비밀번호 확인 후 전체 명단(학번/이름) 반환
+// 값이 비어있는지 확인 ("" 또는 공백만 있으면 비어있음으로 간주)
+function isBlankCell_(v) {
+  return String(v || '').trim() === '';
+}
+
+// 값이 "#N/A" 리터럴인지 확인 (대소문자 무관)
+function isNaCell_(v) {
+  return String(v || '').trim().toUpperCase() === '#N/A';
+}
+
+// teacher.html에서 호출: 마스터 비밀번호 확인 후 전체 명단 + 제출 현황(반/항목별 제출여부)을 한 번에 반환
 function getTeacherRoster(password) {
   if (String(password || '').trim() !== MASTER_PASSWORD) {
     return { valid: false, message: '비밀번호가 일치하지 않습니다.' };
@@ -158,12 +168,43 @@ function getTeacherRoster(password) {
   var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
   if (!sheet) return { valid: false, message: '명단 시트를 찾을 수 없습니다.' };
 
-  var data = sheet.getRange(1, 1, sheet.getLastRow(), 2).getValues(); // A열: 학번, B열: 이름
+  var lastRow = sheet.getLastRow();
+  if (lastRow === 0) return { valid: true, roster: [] };
+
+  var data = sheet.getRange(1, 1, lastRow, 38).getValues(); // A~AL열
   var roster = [];
   for (var i = 0; i < data.length; i++) {
-    var id = String(data[i][0] || '').trim();
-    var name = String(data[i][1] || '').trim();
-    if (id && name) roster.push({ studentId: id, studentName: name });
+    var row = data[i];
+    var id = String(row[0] || '').trim();
+    var name = String(row[1] || '').trim();
+    if (!id || !name) continue;
+
+    var L = Number(row[11]) || 0, M = Number(row[12]) || 0, N = Number(row[13]) || 0;
+    var commentCount = Number(row[31]) || 0; // AF열
+
+    roster.push({
+      studentId: id,
+      studentName: name,
+      classDigit: id.length >= 2 ? id.charAt(1) : '',
+      status: {
+        ownSection: (L + M + N) === 4,            // 자기분과: L+M+N 합이 4
+        otherSection1: Number(row[14]) === 1,      // 다른분과1: O열 = 1
+        otherSection2: Number(row[15]) === 1,      // 다른분과2: P열 = 1
+        otherSection3: Number(row[16]) === 1,      // 다른분과3: Q열 = 1
+        causalChain: !isNaCell_(row[18]) && !isBlankCell_(row[18]),   // 인과: S열에 #N/A가 있지 않음
+        value: !isBlankCell_(row[19]),              // 가치: T열이 비어있지 않음
+        perspective: !isBlankCell_(row[20]),        // 관점: U열이 비어있지 않음
+        reasonConnection: !isBlankCell_(row[21]),   // 관점-가치 연결: V열이 비어있지 않음
+        causalAnalysis: !isBlankCell_(row[26]),     // 문제 인과 분석: AA열이 비어있지 않음
+        policyProposal: !isBlankCell_(row[27]),     // 관점 정책 제안: AB열이 비어있지 않음
+        comment1: commentCount >= 1,                // 질문형 댓글1: AF열 숫자만큼 초록불
+        comment2: commentCount >= 2,                // 질문형 댓글2
+        comment3: commentCount >= 3,                // 질문형 댓글3
+        knowledge: !isNaCell_(row[32]) && !isBlankCell_(row[32]),         // 알게된것: AG열에 #N/A가 있지 않음
+        perspectiveChange: !isBlankCell_(row[33]),  // 관점의 변화: AH열이 비어있지 않음
+        commitment: !isBlankCell_(row[34])          // 실천다짐: AI열이 비어있지 않음
+      }
+    });
   }
   return { valid: true, roster: roster };
 }
