@@ -68,6 +68,12 @@
     }
     .task-link-bar a:hover { background: #ffd6d6; }
     @keyframes pulseLink { 0%, 100% { box-shadow: 0 0 0 rgba(255,0,0,0); } 50% { box-shadow: 0 0 10px rgba(255,80,80,.5); } }
+    .title-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+    .goto-btn {
+      display: inline-block; font-size: 12.5px; font-weight: bold; color: #fff;
+      background: #2d6cdf; border-radius: 999px; padding: 6px 14px; text-decoration: none; white-space: nowrap;
+    }
+    .goto-btn:hover { background: #1a4fbf; }
     .value-desc-box, .perspective-desc-box {
       background: #f5f8ff; border: 1px solid #dbe6ff; border-radius: 8px; padding: 10px 12px;
       font-size: 13px; color: #444; line-height: 1.6; margin-top: 6px;
@@ -113,27 +119,42 @@
   <!-- STEP 1: 1차시 핵심 개념일지 (본인 분과 + 다른 분과 통합) -->
   <div id="conceptCard" class="card alt hidden">
     <div class="result-title">📝 1차시-핵심 개념일지 (빈칸 채우기)</div>
-    <div class="sub-section-title">✏️ 본인 분과</div>
+    <div class="sub-section-title title-row">
+      <span>✏️ 본인 분과</span>
+      <a class="goto-btn" href="https://ddelza.github.io/jigu/index.html" target="_blank">1차시 제출하러 가기 →</a>
+    </div>
     <div id="ownContent"></div>
-    <div class="sub-section-title">👂 다른 분과</div>
+    <div class="sub-section-title title-row">
+      <span>👂 다른 분과</span>
+      <a class="goto-btn" href="https://ddelza.github.io/jigu/learning.html" target="_blank">1차시 제출하러 가기 →</a>
+    </div>
     <div id="learningContent"></div>
   </div>
 
   <!-- STEP 2: 인과 사슬 & 가치 관점 제출 결과 -->
   <div id="valueCard" class="card hidden">
-    <div class="result-title">🔺 2차시-인과 사슬 작성 & 가치 관점 선택</div>
+    <div class="result-title title-row">
+      <span>🔺 2차시-인과 사슬 작성 & 가치 관점 선택</span>
+      <a class="goto-btn" href="https://ddelza.github.io/jigu/student_value.html" target="_blank">2차시 제출하러 가기 →</a>
+    </div>
     <div id="valueContent"></div>
   </div>
 
   <!-- STEP 3: 3차시 지구온난화 긴급회의(패들렛) 제출 결과 -->
   <div id="padletCard" class="card alt hidden">
-    <div class="result-title">🗂️ 3차시 - 지구온난화 긴급회의</div>
+    <div class="result-title title-row">
+      <span>🗂️ 3차시 - 지구온난화 긴급회의</span>
+      <a class="goto-btn" href="https://ddelza.github.io/jigu/padlet.html" target="_blank">3차시 제출하러 가기 →</a>
+    </div>
     <div id="padletContent"></div>
   </div>
 
   <!-- STEP 4: 마지막 차시 성찰일지 제출 결과 -->
   <div id="reflectionCard" class="card hidden">
-    <div class="result-title">🌍 마지막 차시 - 성찰일지</div>
+    <div class="result-title title-row">
+      <span>🌍 마지막 차시 - 성찰일지</span>
+      <a class="goto-btn" href="https://ddelza.github.io/jigu/last.html" target="_blank">4차시 제출하러 가기 →</a>
+    </div>
     <div id="reflectionContent"></div>
   </div>
 
