@@ -160,21 +160,52 @@ function isNaCell_(v) {
   return String(v || '').trim().toUpperCase() === '#N/A';
 }
 
-// teacher.html에서 호출: 마스터 비밀번호 확인 후 전체 명단 + 제출 현황(반/항목별 제출여부)을 한 번에 반환
+// teacher.html에서 호출: 마스터 비밀번호 확인 후 전체 명단 + 제출 현황 + 학생별 상세 데이터(1~마지막 차시)를
+// 시트 3개를 각각 한 번씩만 읽어서 한꺼번에 반환 (학생 수만큼 반복 조회하지 않도록 최적화)
 function getTeacherRoster(password) {
   if (String(password || '').trim() !== MASTER_PASSWORD) {
     return { valid: false, message: '비밀번호가 일치하지 않습니다.' };
   }
-  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
-  if (!sheet) return { valid: false, message: '명단 시트를 찾을 수 없습니다.' };
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var rosterSheet = ss.getSheetByName(ROSTER_SHEET_NAME);
+  if (!rosterSheet) return { valid: false, message: '명단 시트를 찾을 수 없습니다.' };
 
-  var lastRow = sheet.getLastRow();
+  var lastRow = rosterSheet.getLastRow();
   if (lastRow === 0) return { valid: true, roster: [] };
 
-  var data = sheet.getRange(1, 1, lastRow, 38).getValues(); // A~AL열
+  var rosterData = rosterSheet.getRange(1, 1, lastRow, 38).getValues(); // A~AL열
+
+  // 1차시(본인 분과) 제출 시트를 학번 기준 맵으로 한 번만 읽기
+  var ownMap = {};
+  var ownData = getSheet_().getDataRange().getValues();
+  for (var i = 1; i < ownData.length; i++) {
+    var oRow = ownData[i];
+    ownMap[String(oRow[1])] = {
+      timestamp: Utilities.formatDate(new Date(oRow[0]), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
+      section: oRow[3],
+      blanks: oRow[4],
+      aiCheck: oRow[5],
+      lifeAnswer: oRow[6]
+    };
+  }
+
+  // 다른 분과 청취(learning) 시트를 학번 기준 맵으로 한 번만 읽기
+  var learningMap = {};
+  var learningData = getLearningSheet_().getDataRange().getValues();
+  for (var j = 1; j < learningData.length; j++) {
+    var lRow = learningData[j];
+    var lid = String(lRow[1]);
+    if (!learningMap[lid]) learningMap[lid] = [];
+    learningMap[lid].push({
+      timestamp: Utilities.formatDate(new Date(lRow[0]), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'),
+      section: lRow[3],
+      blanks: lRow[4]
+    });
+  }
+
   var roster = [];
-  for (var i = 0; i < data.length; i++) {
-    var row = data[i];
+  for (var k = 0; k < rosterData.length; k++) {
+    var row = rosterData[k];
     var id = String(row[0] || '').trim();
     var name = String(row[1] || '').trim();
     if (!id || !name) continue;
@@ -203,6 +234,29 @@ function getTeacherRoster(password) {
         knowledge: !isNaCell_(row[32]) && !isBlankCell_(row[32]),         // 알게된것: AG열에 #N/A가 있지 않음
         perspectiveChange: !isBlankCell_(row[33]),  // 관점의 변화: AH열이 비어있지 않음
         commitment: !isBlankCell_(row[34])          // 실천다짐: AI열이 비어있지 않음
+      },
+      own: ownMap[id] || null,
+      learning: learningMap[id] || [],
+      valueScore: {
+        causalChain: row[18] || '',
+        value: row[19] || '',
+        perspective: row[20] || '',
+        reason: row[21] || '',
+        scoreCausal: row[22],
+        scoreReasonImportance: row[23],
+        scoreReasonConnection: row[24],
+        causalAnalysis: row[26] || '',
+        policyProposal: row[27] || '',
+        questionComments: row[28] || '',
+        causalAnalysisScore: row[29],
+        policyProposalScore: row[30],
+        commentScore: row[31],
+        reflectionKnowledge: row[32] || '',
+        reflectionPerspectiveChange: row[33] || '',
+        reflectionCommitment: row[34] || '',
+        reflectionKnowledgeScore: row[35],
+        reflectionPerspectiveChangeScore: row[36],
+        reflectionCommitmentScore: row[37]
       }
     });
   }
