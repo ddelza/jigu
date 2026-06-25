@@ -31,7 +31,10 @@
   table.status-table { border-collapse: collapse; width: 100%; font-size: 12.5px; white-space: nowrap; }
   table.status-table th, table.status-table td { padding: 6px 7px; text-align: center; border-bottom: 1px solid #f0f0f0; }
   table.status-table thead tr.group-row th { background: #eef3fc; color: #2d6cdf; font-size: 12px; border-bottom: 1px solid #dbe6ff; }
-  table.status-table thead tr.label-row th { background: #f8f9fb; color: #666; font-weight: normal; font-size: 11.5px; }
+  table.status-table thead tr.label-row th {
+    background: #f8f9fb; color: #666; font-weight: normal; font-size: 11.5px;
+    white-space: normal; word-break: keep-all; max-width: 34px; line-height: 1.25;
+  }
   table.status-table td.student-cell, table.status-table th.student-col {
     position: sticky; left: 0; background: #fff; text-align: left; z-index: 1; min-width: 130px;
   }
@@ -40,6 +43,11 @@
   table.status-table tbody tr:hover td.student-cell { background: #f5f8ff; }
   table.status-table .student-cell { cursor: pointer; }
   table.status-table .rid { color: #888; font-size: 11px; margin-right: 5px; }
+
+  /* 학생정보 칸과 1~4차시 그룹 사이에 세로 구분선 */
+  table.status-table th.divider, table.status-table td.divider {
+    border-right: 2px solid #d8dee8;
+  }
   .status-sq { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
   .status-sq.on { background: #4caf78; }
   .status-sq.off { background: #e57373; }
@@ -107,16 +115,16 @@
       <table class="status-table">
         <thead>
           <tr class="group-row">
-            <th class="student-col" rowspan="2">학생</th>
-            <th colspan="4">1차시</th>
-            <th colspan="4">2차시</th>
-            <th colspan="5">3차시</th>
+            <th class="student-col divider" rowspan="2">학생</th>
+            <th class="divider" colspan="4">1차시</th>
+            <th class="divider" colspan="4">2차시</th>
+            <th class="divider" colspan="5">3차시</th>
             <th colspan="3">4차시</th>
           </tr>
           <tr class="label-row">
-            <th>자기분과</th><th>다른분과1</th><th>다른분과2</th><th>다른분과3</th>
-            <th>인과</th><th>가치</th><th>관점</th><th>관점-가치연결</th>
-            <th>문제인과분석</th><th>관점정책제안</th><th>질문형댓글1</th><th>질문형댓글2</th><th>질문형댓글3</th>
+            <th>자기분과</th><th>다른분과1</th><th>다른분과2</th><th class="divider">다른분과3</th>
+            <th>인과</th><th>가치</th><th>관점</th><th class="divider">관점-가치연결</th>
+            <th>문제인과분석</th><th>관점정책제안</th><th>질문형댓글1</th><th>질문형댓글2</th><th class="divider">질문형댓글3</th>
             <th>알게된것</th><th>관점의변화</th><th>실천다짐</th>
           </tr>
         </thead>
@@ -328,22 +336,22 @@ function renderRoster() {
   tbody.innerHTML = filtered.map(function (s) {
     var st = s.status || {};
     return '<tr>' +
-      '<td class="student-cell" onclick="openDetail(\'' + s.studentId + '\', \'' + s.studentName.replace(/'/g, "\\'") + '\')">' +
+      '<td class="student-cell divider" onclick="openDetail(\'' + s.studentId + '\', \'' + s.studentName.replace(/'/g, "\\'") + '\')">' +
         '<span class="rid">' + s.studentId + '</span>' + escapeHtml_(s.studentName) +
       '</td>' +
       '<td>' + statusSquare(st.ownSection) + '</td>' +
       '<td>' + statusSquare(st.otherSection1) + '</td>' +
       '<td>' + statusSquare(st.otherSection2) + '</td>' +
-      '<td>' + statusSquare(st.otherSection3) + '</td>' +
+      '<td class="divider">' + statusSquare(st.otherSection3) + '</td>' +
       '<td>' + statusSquare(st.causalChain) + '</td>' +
       '<td>' + statusSquare(st.value) + '</td>' +
       '<td>' + statusSquare(st.perspective) + '</td>' +
-      '<td>' + statusSquare(st.reasonConnection) + '</td>' +
+      '<td class="divider">' + statusSquare(st.reasonConnection) + '</td>' +
       '<td>' + statusSquare(st.causalAnalysis) + '</td>' +
       '<td>' + statusSquare(st.policyProposal) + '</td>' +
       '<td>' + statusSquare(st.comment1) + '</td>' +
       '<td>' + statusSquare(st.comment2) + '</td>' +
-      '<td>' + statusSquare(st.comment3) + '</td>' +
+      '<td class="divider">' + statusSquare(st.comment3) + '</td>' +
       '<td>' + statusSquare(st.knowledge) + '</td>' +
       '<td>' + statusSquare(st.perspectiveChange) + '</td>' +
       '<td>' + statusSquare(st.commitment) + '</td>' +
