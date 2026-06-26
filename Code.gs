@@ -7,6 +7,16 @@ var DRAFT_SHEET_NAME = '임시저장'; // student_value.html 임시저장(이어
 var PADLET_SHEET_NAME = 'padlet'; // padlet.html(관점별 게시판) 게시물 기록
 var PASSWORD_SHEET_ID = '1JcgoufQUypJR6ItEBGWR7xVE-e1vBqXqfYddkEgXlJg'; // student.html 접속 시 본인 확인용 비밀번호가 있는 스프레드시트 (학번/비밀번호 탭)
 
+// SpreadsheetApp.openById()는 매번 네트워크 호출이 발생해 의외로 비용이 큼.
+// 하나의 요청(doGet/doPost 한 번) 안에서 같은 스프레드시트를 여러 헬퍼 함수가 각자 openById로 다시 여는 일이
+// 많았는데(예: getMySubmissions 한 번 호출에 4~5번), 같은 실행(execution) 동안은 한 번 연 핸들을 재사용하도록 캐시해서
+// 그 비용을 요청당 1회로 줄인다. (다음 요청/실행에서는 다시 새로 열리므로 최신 데이터를 못 보는 문제는 없음)
+var _ssCache_ = null;
+function getSS_() {
+  if (!_ssCache_) _ssCache_ = SpreadsheetApp.openById(SHEET_ID);
+  return _ssCache_;
+}
+
 // 분과별 정답 (여러 정답 허용: 배열로 등록, 공백/대소문자 무시 비교)
 // 빈칸 개수: ①7개, ②6개, ③6개, ④6개 (최종 확정본 기준)
 var SECTION_BLANKS = {
@@ -138,7 +148,7 @@ function normalize_(s) {
 
 // 학번/이름이 명단과 일치하는지 확인
 function verifyStudent_(studentId, studentName) {
-  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
+  var sheet = getSS_().getSheetByName(ROSTER_SHEET_NAME);
   if (!sheet) return false;
 
   var data = sheet.getRange(1, 1, sheet.getLastRow(), 2).getValues(); // A열: 학번, B열: 이름
@@ -166,7 +176,7 @@ function getTeacherRoster(password) {
   if (String(password || '').trim() !== MASTER_PASSWORD) {
     return { valid: false, message: '비밀번호가 일치하지 않습니다.' };
   }
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = getSS_();
   var rosterSheet = ss.getSheetByName(ROSTER_SHEET_NAME);
   if (!rosterSheet) return { valid: false, message: '명단 시트를 찾을 수 없습니다.' };
 
@@ -328,7 +338,7 @@ function submitWorksheet(payload) {
 }
 
 function getSheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = getSS_();
   var sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
@@ -338,7 +348,7 @@ function getSheet_() {
 }
 
 function getLearningSheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = getSS_();
   var sheet = ss.getSheetByName(LEARNING_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(LEARNING_SHEET_NAME);
@@ -509,7 +519,7 @@ function getMySubmissions(studentId, studentName, password) {
 
 // "학생별" 탭의 S~AL열(인과사슬/가치/관점/이유 + 점수, 3차시 패들렛 제출 + 점수, 마지막 차시 성찰일지 + 점수)을 읽어서 반환
 function getValuePerspectiveScore_(studentId) {
-  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
+  var sheet = getSS_().getSheetByName(ROSTER_SHEET_NAME);
   if (!sheet) return null;
 
   var data = sheet.getRange(1, 1, sheet.getLastRow(), 38).getValues(); // A~AL열
@@ -543,7 +553,7 @@ function getValuePerspectiveScore_(studentId) {
 }
 
 function getValueSheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = getSS_();
   var sheet = ss.getSheetByName(VALUE_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(VALUE_SHEET_NAME);
@@ -598,7 +608,7 @@ function checkValueAlreadySubmitted(studentId, studentName) {
 }
 
 function getDraftSheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = getSS_();
   var sheet = ss.getSheetByName(DRAFT_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(DRAFT_SHEET_NAME);
@@ -717,7 +727,7 @@ function submitValuePerspective(payload) {
 var PADLET_PERSPECTIVES = ['경제적 관점', '기술적 관점', '윤리적 관점'];
 
 function getPadletSheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = getSS_();
   var sheet = ss.getSheetByName(PADLET_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(PADLET_SHEET_NAME);
@@ -765,7 +775,7 @@ function getStudentProfiles_() {
   }
 
   var map = {};
-  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(ROSTER_SHEET_NAME);
+  var sheet = getSS_().getSheetByName(ROSTER_SHEET_NAME);
   if (sheet) {
     var lastRow = sheet.getLastRow();
     if (lastRow >= 1) {
@@ -987,7 +997,7 @@ function togglePadletReaction(payload) {
 var PADLET_COMMENT_SHEET_NAME = 'padlet 댓글';
 
 function getPadletCommentSheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = getSS_();
   var sheet = ss.getSheetByName(PADLET_COMMENT_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(PADLET_COMMENT_SHEET_NAME);
@@ -1081,7 +1091,7 @@ function deletePadletComment(payload) {
 var REFLECTION_SHEET_NAME = '성찰일지';
 
 function getReflectionSheet_() {
-  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var ss = getSS_();
   var sheet = ss.getSheetByName(REFLECTION_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(REFLECTION_SHEET_NAME);
