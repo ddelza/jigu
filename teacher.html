@@ -146,6 +146,8 @@
 var APP_URL = 'https://script.google.com/macros/s/AKfycbwWjFVmcxHzg0GUIbySHl2orXll2siH1I5oAeZNP8VWmYSaVbQ5YOlYEe1o7X7-KcHQ/exec';
 var MASTER_PW = '';
 var ROSTER = [];
+var CURRENT_DETAIL_ID = null;
+var AUTO_REFRESH_MS = 10000; // 10초마다 자동으로 제출 현황을 새로고침
 
 var SECTION_TITLES = {
   '1': '🌍 복사 평형 분과',
@@ -284,10 +286,29 @@ function loadRoster() {
     document.getElementById('rosterCard').classList.remove('hidden');
     populateClassFilter();
     renderRoster();
+    startAutoRefresh();
   }).catch(function (err) {
     btn.disabled = false;
     msg.innerHTML = '<div class="msg error">오류: ' + err.message + '</div>';
   });
+}
+
+// 로그인 후 10초마다 조용히 다시 불러와서 제출 현황 표(+열려있는 학생 상세)를 갱신한다.
+function startAutoRefresh() {
+  setInterval(function () {
+    apiGet({ action: 'getTeacherRoster', password: MASTER_PW }).then(function (res) {
+      if (!res.valid) return;
+      ROSTER = res.roster || [];
+      if (!document.getElementById('rosterCard').classList.contains('hidden')) {
+        populateClassFilter();
+        renderRoster();
+      }
+      if (CURRENT_DETAIL_ID) {
+        var student = ROSTER.find(function (s) { return s.studentId === CURRENT_DETAIL_ID; });
+        if (student) renderDetail(student.own, student.learning, student.valueScore);
+      }
+    }).catch(function () { /* 자동 새로고침 중 오류는 조용히 무시 (다음 주기에 재시도) */ });
+  }, AUTO_REFRESH_MS);
 }
 
 // 운영자(교사) 계정(반 숫자 '0')은 반 필터 목록/표에서 제외
@@ -304,8 +325,10 @@ function populateClassFilter() {
   classes.sort();
 
   var sel = document.getElementById('classFilter');
+  var prevValue = sel.value; // 자동 새로고침으로 옵션을 다시 그려도 선택해둔 반 필터가 풀리지 않도록 유지
   sel.innerHTML = '<option value="">전체 반</option>' +
     classes.map(function (c) { return '<option value="' + c + '">' + c + '반</option>'; }).join('');
+  if (classes.indexOf(prevValue) !== -1) sel.value = prevValue;
 }
 
 function statusSquare(on) {
@@ -360,6 +383,7 @@ function renderRoster() {
 }
 
 function closeDetail() {
+  CURRENT_DETAIL_ID = null;
   document.getElementById('detailCard').classList.add('hidden');
   document.getElementById('rosterCard').classList.remove('hidden');
 }
@@ -367,6 +391,7 @@ function closeDetail() {
 // 명단을 불러올 때 학생별 상세 데이터(own/learning/valueScore)도 함께 받아두므로,
 // 학생을 클릭해도 추가 네트워크 요청 없이 바로 렌더링한다 (로딩 속도 최적화).
 function openDetail(id, name) {
+  CURRENT_DETAIL_ID = id;
   document.getElementById('rosterCard').classList.add('hidden');
   var card = document.getElementById('detailCard');
   card.classList.remove('hidden');
