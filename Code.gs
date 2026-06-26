@@ -754,7 +754,7 @@ function isPadletOperatorId_(id) {
 var PADLET_PROFILES_CACHE_KEY = 'padlet_profiles_v1';
 var PADLET_PROFILES_CACHE_TTL = 30; // 학생들의 가치/관점은 수업 중 자주 안 바뀌므로 30초 캐시
 var PADLET_POSTS_CACHE_KEY = 'padlet_posts_v1';
-var PADLET_POSTS_CACHE_TTL = 4; // 폴링 주기(4초)와 맞춰, 같은 순간 여러 학생이 동시에 폴링해도 시트를 한 번만 읽게 함
+var PADLET_POSTS_CACHE_TTL = 6; // 폴링 주기(6초)와 맞춰, 같은 순간 여러 학생이 동시에 폴링해도 시트를 한 번만 읽게 함
 
 // "학생별" 탭 T열(선택한 가치)/U열(선택한 관점)을 학번 기준 맵으로 읽어옴 (캐시 적용: 동시 접속자가 많아도 매번 전체 명단을 다시 읽지 않음)
 function getStudentProfiles_() {
@@ -791,8 +791,9 @@ function decoratePadletAuthor_(obj, profiles) {
 }
 
 // 게시물을 새로 쓰거나/반응·댓글이 바뀔 때 호출 — 캐시된 게시물 목록을 무효화해서 다음 조회 때 바로 최신 내용이 보이게 함
+// (청크 분할 캐시는 '_count' 키만 지우면 무효화됨 — 조각들은 그대로 남아있어도 count가 없으면 다시 읽지 않고 TTL에 따라 알아서 만료됨)
 function clearPadletPostsCache_() {
-  try { CacheService.getScriptCache().remove(PADLET_POSTS_CACHE_KEY); } catch (e) {}
+  try { CacheService.getScriptCache().remove(PADLET_POSTS_CACHE_KEY + '_count'); } catch (e) {}
 }
 
 // 시트에서 게시물 전체를 읽어 가공 (반응 원본 정보(reactions)는 studentId별 myReaction을 계산하기 위해 잠시 남겨둠)
@@ -828,19 +829,50 @@ function buildPadletPostsRaw_() {
   return posts;
 }
 
-// 위 결과를 짧게 캐시 — 같은 4초 폴링 구간에 여러 학생이 동시에 요청해도 시트는 한 번만 읽음
-// (게시물·댓글이 아무리 쌓여도, 동시 접속 인원이 늘어도 매 요청마다 전체를 다시 읽는 비용이 커지지 않도록 하는 핵심 최적화)
+// CacheService는 키 하나당 100KB 제한이 있음. 게시물+댓글이 쌓여 100KB를 넘으면
+// 문자열을 여러 조각으로 나눠서 여러 키에 나눠 저장하고, 읽을 때 다시 이어붙인다.
+var PADLET_CACHE_CHUNK_SIZE = 90000; // 여유를 두고 90KB 단위로 분할
+
+function putChunkedCache_(cache, key, str, ttl) {
+  var chunkCount = Math.ceil(str.length / PADLET_CACHE_CHUNK_SIZE) || 1;
+  var entries = {};
+  for (var i = 0; i < chunkCount; i++) {
+    entries[key + '_' + i] = str.substring(i * PADLET_CACHE_CHUNK_SIZE, (i + 1) * PADLET_CACHE_CHUNK_SIZE);
+  }
+  entries[key + '_count'] = String(chunkCount);
+  cache.putAll(entries, ttl);
+}
+
+function getChunkedCache_(cache, key) {
+  var countStr = cache.get(key + '_count');
+  if (!countStr) return null;
+  var count = Number(countStr);
+  var keys = [];
+  for (var i = 0; i < count; i++) keys.push(key + '_' + i);
+  var chunks = cache.getAll(keys);
+  var parts = [];
+  for (var j = 0; j < count; j++) {
+    var part = chunks[key + '_' + j];
+    if (part === undefined || part === null) return null; // 일부 조각이 만료/누락되면 캐시 무효로 처리
+    parts.push(part);
+  }
+  return parts.join('');
+}
+
+// 위 결과를 짧게 캐시 — 같은 폴링 구간에 여러 학생이 동시에 요청해도 시트는 한 번만 읽음
+// (게시물·댓글이 아무리 쌓여도, 동시 접속 인원이 늘어도 매 요청마다 전체를 다시 읽는 비용이 커지지 않도록 하는 핵심 최적화.
+//  100KB가 넘는 경우를 위해 청크 분할 캐시를 사용 — 데이터가 커질수록 오히려 캐시가 더 중요해짐)
 function getPadletPostsRaw_() {
   var cache = CacheService.getScriptCache();
-  var cached = cache.get(PADLET_POSTS_CACHE_KEY);
+  var cached = getChunkedCache_(cache, PADLET_POSTS_CACHE_KEY);
   if (cached) {
     try { return JSON.parse(cached); } catch (e) {}
   }
   var posts = buildPadletPostsRaw_();
   try {
-    cache.put(PADLET_POSTS_CACHE_KEY, JSON.stringify(posts), PADLET_POSTS_CACHE_TTL);
+    putChunkedCache_(cache, PADLET_POSTS_CACHE_KEY, JSON.stringify(posts), PADLET_POSTS_CACHE_TTL);
   } catch (e) {
-    // 게시물/댓글이 매우 많아져 캐시 용량(100KB)을 넘으면 캐시 없이 매번 새로 읽음 (정확성에는 영향 없음)
+    // 캐시 저장 자체가 실패해도(매우 드묾) 캐시 없이 매번 새로 읽을 뿐 정확성에는 영향 없음
   }
   return posts;
 }
