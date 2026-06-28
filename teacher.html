@@ -91,7 +91,27 @@
   .perspective-desc-box .pd-solutions { margin-top: 6px; font-size: 12.5px; color: #555; }
   .perspective-desc-box .pd-solutions b { color: #b8860b; }
   .detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-  .detail-header .back-btn { background: #eee; color: #555; padding: 6px 12px; font-size: 13px; margin-top: 0; }
+  .back-btn { background: #eee; color: #555; padding: 6px 12px; font-size: 13px; margin-top: 0; }
+
+  /* ===== 채점모드 ===== */
+  .grading-mode-btn { background: #1a7a36; font-size: 13px; padding: 6px 14px; margin-top: 0; }
+  .grading-mode-btn:hover { background: #145e2a; }
+  #gradingCard .roster-toolbar select#gradingSessionFilter { min-width: 220px; }
+  table.grading-table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  table.grading-table th, table.grading-table td {
+    padding: 8px 10px; text-align: left; border-bottom: 1px solid #f0f0f0; vertical-align: top;
+  }
+  table.grading-table thead th {
+    background: #f8f9fb; color: #666; font-weight: bold; font-size: 12.5px; white-space: nowrap;
+    position: sticky; top: 0;
+  }
+  table.grading-table td.grading-student-cell, table.grading-table th.grading-student-col {
+    white-space: nowrap; font-weight: bold; min-width: 90px; background: #fff;
+  }
+  table.grading-table tbody tr:nth-child(even) td { background: #fafbfd; }
+  table.grading-table .grading-text { white-space: pre-wrap; line-height: 1.5; max-width: 360px; }
+  table.grading-table .grading-empty { color: #bbb; font-style: italic; }
+  table.grading-table .grading-meta { font-size: 11.5px; color: #999; margin-bottom: 3px; }
 </style>
 </head>
 <body>
@@ -108,7 +128,10 @@
 
   <!-- STEP 1: 명단 검색/필터 + 제출현황 표 -->
   <div id="rosterCard" class="card hidden">
-    <div class="result-title">👥 전체 학생 명단 / 제출 현황</div>
+    <div class="result-title title-row">
+      <span>👥 전체 학생 명단 / 제출 현황</span>
+      <button class="grading-mode-btn" onclick="openGradingMode()">📝 채점모드</button>
+    </div>
     <div class="roster-toolbar">
       <select id="classFilter" onchange="renderRoster()">
         <option value="">전체 반</option>
@@ -138,6 +161,32 @@
           </tr>
         </thead>
         <tbody id="rosterTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 채점모드: 반 + 차시(단일)를 고르면 그 반 학생들의 해당 차시 서술형 답안을 한 행씩 모아 보여줌 -->
+  <div id="gradingCard" class="card hidden">
+    <div class="result-title title-row">
+      <span>📝 채점모드</span>
+      <button class="back-btn" onclick="closeGradingMode()">← 명단으로</button>
+    </div>
+    <div class="roster-toolbar">
+      <select id="gradingClassFilter" onchange="renderGradingTable()">
+        <option value="">반을 선택하세요</option>
+      </select>
+      <select id="gradingSessionFilter" onchange="renderGradingTable()">
+        <option value="1">1차시 - 핵심 개념일지</option>
+        <option value="2">2차시 - 인과 사슬 &amp; 가치 관점</option>
+        <option value="3">3차시 - 지구온난화 긴급회의</option>
+        <option value="4">4차시 - 성찰일지</option>
+      </select>
+    </div>
+    <div class="roster-count" id="gradingCount"></div>
+    <div class="status-table-wrap">
+      <table class="grading-table">
+        <thead id="gradingTableHead"></thead>
+        <tbody id="gradingTableBody"></tbody>
       </table>
     </div>
   </div>
@@ -396,6 +445,105 @@ function renderRoster() {
       '<td>' + statusSquare(st.knowledge) + '</td>' +
       '<td>' + statusSquare(st.perspectiveChange) + '</td>' +
       '<td>' + statusSquare(st.commitment) + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+// ===================== 채점모드 =====================
+// 반 + 차시(단일)를 고르면 그 반 학생들의 해당 차시 서술형 답안을 학생당 1행으로 모아서 보여준다.
+// (이미 명단을 불러올 때 모든 학생의 상세 데이터를 다 받아둔 상태라 추가 API 호출 없이 즉시 렌더링)
+function openGradingMode() {
+  document.getElementById('rosterCard').classList.add('hidden');
+  document.getElementById('gradingCard').classList.remove('hidden');
+  populateGradingClassFilter();
+  renderGradingTable();
+}
+
+function closeGradingMode() {
+  document.getElementById('gradingCard').classList.add('hidden');
+  document.getElementById('rosterCard').classList.remove('hidden');
+}
+
+function populateGradingClassFilter() {
+  var classes = [];
+  ROSTER.forEach(function (s) {
+    if (isOperator(s)) return;
+    if (s.classDigit && classes.indexOf(s.classDigit) === -1) classes.push(s.classDigit);
+  });
+  classes.sort();
+
+  var sel = document.getElementById('gradingClassFilter');
+  var prevValue = sel.value;
+  sel.innerHTML = '<option value="">반을 선택하세요</option>' +
+    classes.map(function (c) { return '<option value="' + c + '">' + c + '반</option>'; }).join('');
+  if (classes.indexOf(prevValue) !== -1) sel.value = prevValue;
+}
+
+// 차시별로 "학생당 1행" 표에 어떤 열을 보여줄지 정의 (열 제목 + 학생 객체에서 텍스트를 꺼내는 함수)
+var GRADING_SESSION_COLUMNS = {
+  '1': [
+    { label: 'AI 교차 검증 기록', get: function (s) { return s.own ? s.own.aiCheck : ''; } },
+    { label: '인과 단계 서술', get: function (s) { return s.own ? s.own.lifeAnswer : ''; } }
+  ],
+  '2': [
+    { label: '기후위기 인과 찾기', get: function (s) { return s.valueScore ? s.valueScore.causalChain : ''; } },
+    { label: '평소 중요하게 생각하는 가치', get: function (s) { return s.valueScore ? s.valueScore.value : ''; } },
+    { label: '선택한 관점', get: function (s) { return s.valueScore ? s.valueScore.perspective : ''; } },
+    { label: '가치-관점 연결 서술', get: function (s) { return s.valueScore ? s.valueScore.reason : ''; } }
+  ],
+  '3': [
+    { label: '문제의 인과적 분석', get: function (s) { return s.valueScore ? s.valueScore.causalAnalysis : ''; } },
+    { label: '나의 관점에서 정책 제안', get: function (s) { return s.valueScore ? s.valueScore.policyProposal : ''; } },
+    { label: '질문형 댓글', get: function (s) {
+        var raw = cleanCellText(s.valueScore ? s.valueScore.questionComments : '');
+        if (!raw) return '';
+        return raw.split(' | ').map(function (q) { return q.trim(); }).filter(function (q) { return q && q.toUpperCase() !== '#N/A'; }).join('\n');
+      } }
+  ],
+  '4': [
+    { label: '[지식] 알게 된 것', get: function (s) { return s.valueScore ? s.valueScore.reflectionKnowledge : ''; } },
+    { label: '[관점의 변화]', get: function (s) { return s.valueScore ? s.valueScore.reflectionPerspectiveChange : ''; } },
+    { label: '[실천] 다짐', get: function (s) { return s.valueScore ? s.valueScore.reflectionCommitment : ''; } }
+  ]
+};
+
+function renderGradingTable() {
+  var classFilter = document.getElementById('gradingClassFilter').value;
+  var sessionId = document.getElementById('gradingSessionFilter').value;
+  var thead = document.getElementById('gradingTableHead');
+  var tbody = document.getElementById('gradingTableBody');
+  var countEl = document.getElementById('gradingCount');
+  var columns = GRADING_SESSION_COLUMNS[sessionId];
+
+  if (!classFilter) {
+    countEl.textContent = '';
+    thead.innerHTML = '';
+    tbody.innerHTML = '<tr><td class="roster-empty">먼저 반을 선택해주세요.</td></tr>';
+    return;
+  }
+
+  var students = ROSTER.filter(function (s) { return !isOperator(s) && s.classDigit === classFilter; });
+  students.sort(function (a, b) { return a.studentId < b.studentId ? -1 : 1; });
+
+  countEl.textContent = classFilter + '반 ' + students.length + '명';
+
+  thead.innerHTML = '<tr><th class="grading-student-col">학생</th>' +
+    columns.map(function (c) { return '<th>' + escapeHtml_(c.label) + '</th>'; }).join('') + '</tr>';
+
+  if (students.length === 0) {
+    tbody.innerHTML = '<tr><td class="roster-empty" colspan="' + (columns.length + 1) + '">해당 반 학생이 없습니다.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = students.map(function (s) {
+    return '<tr>' +
+      '<td class="grading-student-cell"><span class="rid">' + s.studentId + '</span>' + escapeHtml_(s.studentName) + '</td>' +
+      columns.map(function (c) {
+        var text = cleanCellText(c.get(s));
+        return '<td>' + (text
+          ? '<div class="grading-text">' + escapeHtml_(text) + '</div>'
+          : '<span class="grading-empty">미작성</span>') + '</td>';
+      }).join('') +
       '</tr>';
   }).join('');
 }
